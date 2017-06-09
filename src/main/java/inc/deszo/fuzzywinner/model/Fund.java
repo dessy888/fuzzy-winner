@@ -2,6 +2,8 @@ package inc.deszo.fuzzywinner.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -9,12 +11,14 @@ import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Document(collection = "fund")
+@CompoundIndexes(value =
+        {
+                @CompoundIndex(name = "Sedol_updated_ind1", def = "{'sedol': 1, 'updated': 1}", unique = true)
+        }
+)
 public class Fund {
 
-    @Indexed(unique = true)
     private String sedol;
-
-    private String isin;
 
     private String name;
 
@@ -77,7 +81,7 @@ public class Fund {
                 String perf48t60m, String fundSize, String incomeFrequency, String paymentType, String numHoldings,
                 String updated) {
 
-        this(sedol, "", name, unitType, loaded, company, sector, plusFund, Double.valueOf(price_sell),
+        this(sedol, name, unitType, loaded, company, sector, plusFund, Double.valueOf(price_sell),
                 Double.valueOf(price_buy), Double.valueOf(price_change), Double.valueOf(yield), Double.valueOf(initialCharge),
                 Double.valueOf(annualCharge), Double.valueOf(annualSaving), Double.valueOf(netAnnualCharge),
                 discountedCode, perf12m, perf12t24m, perf24t36m, perf36t48m, perf48t60m, Double.valueOf(fundSize),
@@ -85,13 +89,12 @@ public class Fund {
 
     }
 
-    public Fund(String sedol, String isin, String name, String unitType, String loaded, String company, String sector,
+    public Fund(String sedol, String name, String unitType, String loaded, String company, String sector,
                 String plusFund, double price_sell, double price_buy, double price_change, double yield,
                 double initialCharge, double annualCharge, double annualSaving, double netAnnualCharge,
                 String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
                 String perf48t60m, double fundSize, String incomeFrequency, String paymentType, int numHoldings, String updated) {
         this.sedol = sedol;
-        this.isin = isin;
         this.name = name;
         this.unitType = unitType;
         this.loaded = loaded;
@@ -125,14 +128,6 @@ public class Fund {
 
     public void setSedol(String sedol) {
         this.sedol = sedol;
-    }
-
-    public String getIsin() {
-        return isin;
-    }
-
-    public void setIsin(String isin) {
-        this.isin = isin;
     }
 
     public String getName() {

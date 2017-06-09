@@ -13,12 +13,18 @@ public interface FundRepository extends MongoRepository<Fund, Long>, FundReposit
     Fund findFirstBySedol(String sedol);
 
     //Mongo JSON query string
-    @Query("{sedol:'?0'}")
+    @Query("{sedol: '?0' }")
     Fund findFundBySedol(String sedol);
 
-    @Query("{yield: { $gt: ?0 }})")
+    @Query("{yield: { $gt: ?0 }}")
     List<Fund> findFundsByYield(double yield, Sort sort);
 
-    @Query("{yield: { $gt: ?0 }, plusFund: {$ne : \"false\"}})")
+    @Query("{yield: { $gt: ?0 }, plusFund: {$ne : \"false\"}}")
     List<Fund> findPlusFundsByYield(double yield, Sort sort);
+
+    @Query("{sedol: '?0', updated: '?1'}")
+    Fund updatedFund(String sedol, String updated);
+
+    @Query(value="{}", fields="{sedol : 1}")
+    List<Fund> findSedolAndExclueAll(Sort sort);
 }

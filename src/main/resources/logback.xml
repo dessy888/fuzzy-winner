@@ -1,10 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+
+    <property name="DEV_HOME" value="c:/Users/deszo/IdeaProjects/fuzzy-winner" />
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>web - %date [%thread] %-5level %logger{36} - %message%n
-            </pattern>
+            <pattern>%date [%thread] %-5level %logger{36} - %message%n</pattern>
         </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${DEV_HOME}/log/execution.log</file>
+        <append>true</append>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>${DEV_HOME}/log/execution.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
     </appender>
 
     <logger name="org.springframework" level="WARN" />
@@ -13,11 +32,13 @@
     <!-- in order to debug some marshalling issues, this needs to be TRACE -->
     <logger name="org.springframework.web.servlet.mvc" level="WARN" />
 
-    <logger name="inc.deszo" level="debug" additivity="false">
+    <logger name="inc.deszo" level="INFO" additivity="false">
         <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
     </logger>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
     </root>
 </configuration>

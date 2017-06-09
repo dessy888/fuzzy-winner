@@ -2,10 +2,15 @@ package inc.deszo.fuzzywinner;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.DuplicateKeyException;
 import inc.deszo.fuzzywinner.model.Domain;
 import inc.deszo.fuzzywinner.model.Fund;
+import inc.deszo.fuzzywinner.model.FundInfos;
 import inc.deszo.fuzzywinner.repository.DomainRepository;
+import inc.deszo.fuzzywinner.repository.FundInfosRepository;
 import inc.deszo.fuzzywinner.repository.FundRepository;
+import inc.deszo.fuzzywinner.utils.DateUtils;
+import org.jsoup.HttpStatusException;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,10 +22,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.web.client.RestTemplate;
 
 import org.jsoup.Jsoup;
@@ -33,13 +41,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.match;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.newAggregation;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.sort;
+
 @SpringBootApplication
 public class Application implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     @Autowired
+    MongoTemplate mongoTemplate;
+
+    @Autowired
     private FundRepository fundRepository;
+
+    @Autowired
+    private FundInfosRepository fundInfosRepository;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -48,22 +66,52 @@ public class Application implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        loadFunds();
+        loadFunds(false, false);
+
+        updateAllISIN(true);
 
         // all funds with yield more than 5%
-        Sort sort = new Sort(Sort.Direction.ASC,"yield");
+        /*Sort sort = new Sort(Sort.Direction.ASC, "yield");
         List<Fund> funds = fundRepository.findFundsByYield(5.0, sort);
-        funds.forEach((fund) -> logger.info("Funds {}: {}%", fund.getName(), fund.getYield()));
+        funds.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+                */
 
         // all plus funds with yield more than 4%
-        List<Fund> plusFunds = fundRepository.findPlusFundsByYield(4.0, sort);
-        plusFunds.forEach((fund) -> logger.info("Plus Funds {}: {}%", fund.getName(), fund.getYield()));
+        /*List<Fund> plusFunds = fundRepository.findPlusFundsByYield(4.0, sort);
+        plusFunds.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+                */
+
+        // all funds with yield more than 5% sort by yield and sedol
+        Aggregation aggFund = newAggregation(
+                match(Criteria.where("yield").gt(5.0)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
+        );
+        AggregationResults<Fund> fundResults = mongoTemplate.aggregate(aggFund, Fund.class, Fund.class);
+        fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+
+        // all plus funds with yield more than 4% sort by yield and sedol
+        Aggregation aggPlusFund = newAggregation(
+                match(Criteria.where("yield").gt(4.0)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
+        );
+        AggregationResults<Fund> plusFundResults = mongoTemplate.aggregate(aggPlusFund, Fund.class, Fund.class);
+        plusFundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+
+        // all updated dates
+        List<String> updatedDates = mongoTemplate.getCollection("fund").distinct("updated");
+        updatedDates.forEach((date) -> logger.info("Updated Date {}.", date));
     }
 
-    public void loadFunds() throws IOException {
-        fundRepository.deleteAll();
+    public void loadFunds(boolean deleteAll, boolean updateISIN) throws IOException {
 
-        int numOfFunds = 0;
+        if (deleteAll) {
+            fundRepository.deleteAll();
+            fundInfosRepository.deleteAll();
+        }
+
+        int numOfFundsUpdated = 0;
         int numOfFundCompany = 0;
 
         //Get list of companyIds
@@ -73,27 +121,118 @@ public class Application implements CommandLineRunner {
         Elements options = optgroups.last().getElementsByTag("option");
 
         for (Element option : options) {
-            logger.info("companyIds: {}, {}", option.val(), option.text());
+            logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
 
             String companyId = option.val();
             RestTemplate restTemplate = new RestTemplate();
             String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
-            logger.info(result);
+            logger.debug(result);
 
             final JsonNode arrNode = new ObjectMapper().readTree(result).get("results");
             if (arrNode.isArray()) {
                 for (final JsonNode objNode : arrNode) {
-                    logger.info(objNode.toString());
+                    logger.debug("Loading Fund: {}", objNode.toString());
                     Fund newFund = new ObjectMapper().treeToValue(objNode, Fund.class);
 
-                    fundRepository.save(newFund);
-                    numOfFunds++;
+                    String sedol = newFund.getSedol();
+                    String updated = newFund.getUpdated();
+
+                    Fund loadedFund = fundRepository.updatedFund(sedol, updated);
+                    if (loadedFund == null) {
+                        logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdated());
+                        fundRepository.save(newFund);
+                        numOfFundsUpdated++;
+                    } else {
+                        logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdated());
+                    }
+
+                    if (updateISIN) {
+                        updateISIN(sedol);
+                    }
                 }
+                logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
             }
             numOfFundCompany++;
         }
 
-        logger.info("Number of Fund Companies Loaded: {}, Number of Funds Loaded: {}", numOfFundCompany, numOfFunds);
+        logger.info("Number of Fund Companies Loaded: {}, Number of Funds Updated {}", numOfFundCompany, numOfFundsUpdated);
+    }
+
+    public void updateAllISIN(boolean onlyNewOnes) {
+
+        int numOfISINLoaded = 0;
+
+        List<String> sedols = mongoTemplate.getCollection("fund").distinct("sedol");
+
+        if (onlyNewOnes) {
+            for (String sedol : sedols) {
+                if (fundInfosRepository.findFirstBySedol(sedol) == null) {
+                    if (updateISIN(sedol)) {
+                        numOfISINLoaded++;
+                    }
+                } else {
+                    logger.info("Sedol: {} already added before.", sedol);
+                }
+            }
+        } else {
+            for (String sedol : sedols) {
+                updateISIN(sedol);
+                numOfISINLoaded++;
+            }
+        }
+
+        logger.info("Number of updated ISIN: {}", numOfISINLoaded);
+    }
+
+    public boolean updateISIN(String sedol) {
+
+        boolean success = false;
+
+        // now get the isin into fundinfos
+        logger.info("Loading Fund ISIN using sedol: {}", sedol);
+
+        try {
+            Document searchDoc = Jsoup.connect("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results/" + sedol).timeout(0).get();
+            String redirected = searchDoc.location();
+
+            Document keyFeaturesDoc = null;
+
+            keyFeaturesDoc = Jsoup.connect(redirected + "/key-features").timeout(0).get();
+
+            logger.debug("Key Features: {}", keyFeaturesDoc.html());
+
+            Element isinElement = keyFeaturesDoc.select("th[class='align-left']:contains(ISIN code:)").first().parent().child(1);
+            String isin = isinElement.text().trim();
+
+            if (isin.isEmpty()) {
+                logger.debug("ISIN for SEDOL {} NOT found!", sedol);
+            } else {
+                logger.debug("ISIN: {} for SEDOL {} found.", isin, sedol);
+
+                FundInfos newFundInfos = new FundInfos(sedol, isin, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+
+                // check if fundInfo exist?
+                FundInfos loadedFundInfos = fundInfosRepository.findISIN(sedol, isin);
+                if (loadedFundInfos == null) {
+                    fundInfosRepository.save(newFundInfos);
+                    logger.info("ISIN: {} for SEDOL {} saved.", isin, sedol);
+                    success = true;
+                } else {
+                    logger.info("ISIN: {} for SEDOL {} already exist.", isin, sedol);
+                }
+            }
+
+        } catch (HttpStatusException hse) {
+            logger.info("No market data for sedol {}.", sedol);
+
+        } catch (NullPointerException npe) {
+            logger.info("No market data for sedol {}.", sedol);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return success;
     }
 
    /* @Bean

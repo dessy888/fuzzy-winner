@@ -1,12 +1,13 @@
 package inc.deszo.fuzzywinner;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.DuplicateKeyException;
-import inc.deszo.fuzzywinner.model.Domain;
 import inc.deszo.fuzzywinner.model.Fund;
+import inc.deszo.fuzzywinner.model.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.FundInfos;
-import inc.deszo.fuzzywinner.repository.DomainRepository;
+import inc.deszo.fuzzywinner.repository.FundHistoryPricesRepository;
 import inc.deszo.fuzzywinner.repository.FundInfosRepository;
 import inc.deszo.fuzzywinner.repository.FundRepository;
 import inc.deszo.fuzzywinner.utils.DateUtils;
@@ -28,30 +29,29 @@ import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
-import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashMap;
+import java.net.URLEncoder;
 import java.util.List;
-import java.util.Map;
-
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.match;
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.newAggregation;
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.sort;
 
 @SpringBootApplication
 public class Application implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
-    @Autowired
-    MongoTemplate mongoTemplate;
+    private RestTemplate restTemplate;
 
     @Autowired
     private FundRepository fundRepository;
@@ -59,52 +59,31 @@ public class Application implements CommandLineRunner {
     @Autowired
     private FundInfosRepository fundInfosRepository;
 
+    @Autowired
+    private FundHistoryPricesRepository fundHistoryPricesRepository;
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
+    }
+
+    @PostConstruct
+    public void initIt() throws Exception {
+        restTemplate = new RestTemplate();
     }
 
     @Override
     public void run(String... args) throws Exception {
 
-        loadFunds(false, false);
+        loadFunds(false, false, true);
 
-        updateAllISIN(true);
+        updateFundsInfos(true);
 
-        // all funds with yield more than 5%
-        /*Sort sort = new Sort(Sort.Direction.ASC, "yield");
-        List<Fund> funds = fundRepository.findFundsByYield(5.0, sort);
-        funds.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
-                */
+        updateFundsHistoryPrices(true);
 
-        // all plus funds with yield more than 4%
-        /*List<Fund> plusFunds = fundRepository.findPlusFundsByYield(4.0, sort);
-        plusFunds.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
-                */
-
-        // all funds with yield more than 5% sort by yield and sedol
-        Aggregation aggFund = newAggregation(
-                match(Criteria.where("yield").gt(5.0)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
-        );
-        AggregationResults<Fund> fundResults = mongoTemplate.aggregate(aggFund, Fund.class, Fund.class);
-        fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
-
-        // all plus funds with yield more than 4% sort by yield and sedol
-        Aggregation aggPlusFund = newAggregation(
-                match(Criteria.where("yield").gt(4.0)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
-        );
-        AggregationResults<Fund> plusFundResults = mongoTemplate.aggregate(aggPlusFund, Fund.class, Fund.class);
-        plusFundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
-
-        // all updated dates
-        List<String> updatedDates = mongoTemplate.getCollection("fund").distinct("updated");
-        updatedDates.forEach((date) -> logger.info("Updated Date {}.", date));
+        runStatistics();
     }
 
-    public void loadFunds(boolean deleteAll, boolean updateISIN) throws IOException {
+    public void loadFunds(boolean deleteAll, boolean updateFundInfos, boolean updatePlusFund) throws IOException {
 
         if (deleteAll) {
             fundRepository.deleteAll();
@@ -124,7 +103,6 @@ public class Application implements CommandLineRunner {
             logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
 
             String companyId = option.val();
-            RestTemplate restTemplate = new RestTemplate();
             String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
             logger.debug(result);
 
@@ -146,8 +124,14 @@ public class Application implements CommandLineRunner {
                         logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdated());
                     }
 
-                    if (updateISIN) {
-                        updateISIN(sedol);
+                    if (updatePlusFund) {
+                        //update plusFund
+                        fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+                    }
+
+                    if (updateFundInfos) {
+                        //update inceptionDate and isin
+                        updateFundInfos(sedol);
                     }
                 }
                 logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
@@ -155,19 +139,19 @@ public class Application implements CommandLineRunner {
             numOfFundCompany++;
         }
 
-        logger.info("Number of Fund Companies Loaded: {}, Number of Funds Updated {}", numOfFundCompany, numOfFundsUpdated);
+        logger.info("Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
     }
 
-    public void updateAllISIN(boolean onlyNewOnes) {
+    public void updateFundsInfos(boolean onlyNewOnes) {
 
         int numOfISINLoaded = 0;
 
-        List<String> sedols = mongoTemplate.getCollection("fund").distinct("sedol");
+        List<String> sedols = fundRepository.getDistinctSedol();
 
         if (onlyNewOnes) {
             for (String sedol : sedols) {
                 if (fundInfosRepository.findFirstBySedol(sedol) == null) {
-                    if (updateISIN(sedol)) {
+                    if (updateFundInfos(sedol)) {
                         numOfISINLoaded++;
                     }
                 } else {
@@ -176,7 +160,7 @@ public class Application implements CommandLineRunner {
             }
         } else {
             for (String sedol : sedols) {
-                updateISIN(sedol);
+                updateFundInfos(sedol);
                 numOfISINLoaded++;
             }
         }
@@ -184,7 +168,7 @@ public class Application implements CommandLineRunner {
         logger.info("Number of updated ISIN: {}", numOfISINLoaded);
     }
 
-    public boolean updateISIN(String sedol) {
+    public boolean updateFundInfos(String sedol) {
 
         boolean success = false;
 
@@ -193,10 +177,24 @@ public class Application implements CommandLineRunner {
 
         try {
             Document searchDoc = Jsoup.connect("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results/" + sedol).timeout(0).get();
+            Element launchDateElement = searchDoc.select("th[class='align-left']:contains(Fund launch date:)").first().parent().child(1);
+            String launchDate = launchDateElement.text().trim();
             String redirected = searchDoc.location();
 
-            Document keyFeaturesDoc = null;
+            //update InceptionDate
+            if (!launchDate.equalsIgnoreCase("n/a")) {
+                String inceptionDate = DateUtils.getDatefromFormat(launchDate, "d MMMM yyyy", DateUtils.STANDARD_FORMAT);
+                if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                    logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
+                } else {
+                    logger.info("Inception date for sedol {}: {} NOT updated.", sedol, inceptionDate);
+                }
+            } else {
+                logger.info("Inception date for sedol {}: {} NOT updated.", sedol, launchDate);
+            }
 
+            //update isin
+            Document keyFeaturesDoc = null;
             keyFeaturesDoc = Jsoup.connect(redirected + "/key-features").timeout(0).get();
 
             logger.debug("Key Features: {}", keyFeaturesDoc.html());
@@ -235,79 +233,176 @@ public class Application implements CommandLineRunner {
         return success;
     }
 
-   /* @Bean
-    CommandLineRunner init(FundRepository fundRepository) {
+    public void updateFundsHistoryPrices(boolean onlyPlusFunds) throws IOException {
 
-        return args -> {
+        int numOfFundsLoaded = 0;
 
-            fundRepository.deleteAll();
+        List<FundInfos> fundInfos;
 
-            Fund newFund = new Fund("B0XWNK3",
-                    "",
-                    "Aberdeen Asia Pacific and Japan Equity (Class I)",
-                    "Accumulation",
-                    "Unbundled",
-                    "Aberdeen",
-                    "Asia Pacific Inc Japan",
-                    "false",
-                    153.41,
-                    0,
-                    0.16,
-                    1.30,
-                    0.00,
-                    1.20,
-                    0.175,
-                    1.025,
-                    "lND",
-                    "35.98%",
-                    "-5.00%",
-                    "9.86%",
-                    "-1.63%",
-                    "18.49%",
-                    136.7,
-                    "Annually",
-                    "Dividend",
-                    70,
-                    new Date("06/06/2017"));
+        if (onlyPlusFunds) {
+            fundInfos = fundInfosRepository.findPlusFunds(new Sort(Sort.Direction.DESC, "sedol"));
+        } else {
+            fundInfos = fundInfosRepository.findAllDistinct(new Sort(Sort.Direction.DESC, "sedol"));
+        }
 
-            fundRepository.save(newFund);
+        for (FundInfos fundInfo : fundInfos) {
+            logger.info("Starting download of historical prices for: {}, {}, {}, {}", fundInfo.getSedol(),
+                    fundInfo.getIsin(), fundInfo.getInceptionDate(), fundInfo.getFtSymbol());
 
-        };
+            updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(), fundInfo.getInceptionDate(), fundInfo.getFtSymbol());
+            logger.info("Download completed for: {}", fundInfo.getSedol());
+        }
+    }
 
-    }*/
+    public void updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException {
 
-   /* @Bean
-    CommandLineRunner init(DomainRepository domainRepository) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        return args -> {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonFactory factory = mapper.getFactory();
 
-            Domain newObj = new Domain(100, "deszo.inc", true);
-            domainRepository.save(newObj);
+        if (inceptionDate == null || ftSymbol == null) {
 
-            Domain obj = domainRepository.findOne(100L);
-            System.out.println(obj);
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<String, String>();
+            map.add("searchTerm", isin);
 
-            Domain obj2 = domainRepository.findFirstByDomain("deszo.inc");
-            System.out.println(obj2);
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(map, headers);
 
-            //obj2.setDisplayAds(true);
-            //domainRepository.save(obj2);
+            ResponseEntity<String> ftCompanyLookupResponse = restTemplate.
+                    postForEntity("http://funds.ft.com/Remote/UK/API/CompanyLookup?projectType=GlobalFunds", request,
+                            String.class);
 
-            //int n = domainRepository.updateDomain("mkyong.com", true);
-            //System.out.println("Number of records updated : " + n);
+            JsonParser ftCompanyLookupParser = factory.createParser(ftCompanyLookupResponse.getBody());
+            JsonNode ftCompanyLookupJnode = mapper.readTree(ftCompanyLookupParser);
 
-            //Domain obj3 = domainRepository.findOne(2000001L);
-            //System.out.println(obj3);
+            String ftCompanyLookupResponseHTML = ftCompanyLookupJnode.get("html").toString();
+            logger.info("FT Company Lookup Response for {}: {}", isin, ftCompanyLookupResponseHTML);
 
-            //Domain obj4 = domainRepository.findCustomByDomain("google.com");
-            //System.out.println(obj4);
+            Document ftCompanyLookupResponseDoc = Jsoup.parse(ftCompanyLookupResponseHTML);
+            Element ftCompanyLookupResponseHref = ftCompanyLookupResponseDoc.select("a[href]").last();
 
-            //List<Domain> obj5 = domainRepository.findCustomByRegExDomain("google");
-            //obj5.forEach(x -> System.out.println(x));
+            String ftIsin = ftCompanyLookupResponseHref.html();
+            logger.info("FT Company LookUp Response ISIN {}: {}", isin, ftIsin);
 
-        };
+            //now get the inception date and ftsymbol.
+            Document ftHistoricDoc = Jsoup.connect("https://markets.ft.com/data/funds/tearsheet/historical?s=" +
+                    ftIsin).timeout(0).get();
+            String ftHistoricalPricesAppElement = ftHistoricDoc.select("div[data-module-name='HistoricalPricesApp']")
+                    .attr("data-mod-config");
+            JsonParser ftHistoricalPricesAppElementParser = factory.createParser(ftHistoricalPricesAppElement);
+            JsonNode ftHistoricalPricesAppJnode = mapper.readTree(ftHistoricalPricesAppElementParser);
 
-    }*/
+            if (ftSymbol == null) {
+                ftSymbol = ftHistoricalPricesAppJnode.get("symbol").textValue();
+                if (fundInfosRepository.updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                    logger.info("FT Symbol for sedol {}: {} updated.", sedol, ftSymbol);
+                }
+            }
+
+            if (inceptionDate == null) {
+                String inceptionISODate = null;
+
+                try {
+                    inceptionISODate = ftHistoricalPricesAppJnode.get("inception").textValue();
+                } catch (NullPointerException npe) {
+                    logger.info("Can't find Inception Date, hence will try Launch Date.");
+                }
+
+                if (inceptionISODate != null) {
+                    inceptionDate = DateUtils.getDateFromISODate(inceptionISODate, DateUtils.STANDARD_FORMAT);
+
+                    if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                        logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
+                    }
+                } else {
+                    logger.info("No inceptionDate, hence skipped.");
+                    return;
+                /*Document ftSummaryDoc = Jsoup.connect("https://markets.ft.com/data/funds/tearsheet/summary?s=" +
+                        ftIsin).timeout(0).get();
+                inceptionDate = DateUtils.getDatefromFormat(
+                        ftHistoricDoc.select("th:contains(Launch date)").first().parent().child(1).text(),
+                        "dd MMM yyyy", "yyyy/MM/dd");*/
+                }
+            }
+        }
+
+        logger.info("ISIN {}, inception: {}, symbol: {}", isin, inceptionDate, ftSymbol);
+
+        //now get the historical prices year by year
+
+        //check the last date it is in the database
+        String startDate = "";
+        List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.lastUpdated(sedol, isin, ftSymbol);
+        if (fundHistoryPrices.size() > 0) {
+            startDate = DateUtils.addDayToDate(DateUtils.getDate(fundHistoryPrices.get(0).getCobDate(), "yyyy/MM/dd"),
+                    "yyyy/MM/dd", 1);
+        } else {
+            startDate = inceptionDate;
+        }
+        logger.info("Fund prices will updated from: {}", startDate);
+
+        String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, "yyyy/MM/dd");
+
+        while (DateUtils.isLessThanOrEqualToDate(startDate, DateUtils.getTodayDate("yyyy/MM/dd"), "yyyy/MM/dd")) {
+            logger.info("Loading Historical Prices from {} to {}", startDate, endDate);
+
+            String historicalPriceAppURL = "https://markets.ft.com/data/equities/ajax/get-historical-prices?startDate=" +
+                    URLEncoder.encode(startDate) + "&endDate=" + URLEncoder.encode(endDate) + "&symbol=" + ftSymbol;
+            logger.info("Loading Historical Prices using URL: {}", historicalPriceAppURL);
+
+            MultiValueMap<String, String> historicalPriceAppMap = new LinkedMultiValueMap<String, String>();
+            historicalPriceAppMap.add("startDate", startDate);
+            historicalPriceAppMap.add("endDate", endDate);
+            historicalPriceAppMap.add("symbol", ftSymbol);
+
+            HttpEntity<MultiValueMap<String, String>> historicalPriceAppRequest = new
+                    HttpEntity<MultiValueMap<String, String>>(historicalPriceAppMap, headers);
+
+            ResponseEntity<String> ftHistoricalPriceAppResponse = restTemplate.
+                    postForEntity("https://markets.ft.com/data/equities/ajax/get-historical-prices",
+                            historicalPriceAppRequest, String.class);
+            JsonParser ftHistoricalPriceParser = factory.createParser(ftHistoricalPriceAppResponse.getBody());
+            JsonNode ftHistoricalPriceJNode = mapper.readTree(ftHistoricalPriceParser);
+
+            Document ftHistoricalPriceDoc = Jsoup.parse("<html><body><table>" + ftHistoricalPriceJNode.get("html").asText() +
+                    "</table></body></html>");
+            Elements ftHistoricalPriceElements = ftHistoricalPriceDoc.select("tr");
+
+            for (Element ftHistoricalPriceElement : ftHistoricalPriceElements) {
+                String cobDate = DateUtils.getDatefromLongFormat(ftHistoricalPriceElement.
+                                select("span[class='mod-ui-hide-small-below']").first().text(),
+                        DateUtils.STANDARD_FORMAT);
+
+                Double price = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text());
+
+                logger.info("Date: {}, Price: {}", cobDate, price);
+
+                FundHistoryPrices fundHistoryPrice = new FundHistoryPrices(sedol, isin, ftSymbol, price, cobDate);
+                fundHistoryPricesRepository.save(fundHistoryPrice);
+            }
+
+            startDate = DateUtils.addDayToDate(endDate, "yyyy/MM/dd", 1);
+            endDate = DateUtils.getEndDateForHistoricalPrices(endDate, "yyyy/MM/dd");
+        }
+    }
+
+    public void runStatistics() {
+
+        // all funds with yield more than 5% sort by yield and sedol
+        AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);
+        fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+
+        // all plus funds with yield more than 4% sort by yield and sedol
+        AggregationResults<Fund> plusFundResults = fundRepository.getPlusFundWithYieldMoreThan(4.0);
+        plusFundResults.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+
+        // all updated dates
+        List<String> updatedDates = fundRepository.getDistinctUpdated();
+        updatedDates.forEach((date) -> logger.info("Updated Date {}.", date));
+    }
 
     @Bean
     public MongoTemplate mongoTemplate(MongoDbFactory mongoDbFactory,

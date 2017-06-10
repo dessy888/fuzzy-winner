@@ -26,5 +26,5 @@ public interface FundRepository extends MongoRepository<Fund, Long>, FundReposit
     Fund updatedFund(String sedol, String updated);
 
     @Query(value="{}", fields="{sedol : 1}")
-    List<Fund> findSedolAndExclueAll(Sort sort);
+    List<Fund> findSedolOnly(Sort sort);
 }

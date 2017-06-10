@@ -4,12 +4,20 @@ import com.mongodb.WriteResult;
 import inc.deszo.fuzzywinner.model.Domain;
 import inc.deszo.fuzzywinner.model.Fund;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
 import java.util.Date;
+import java.util.List;
+
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.match;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.newAggregation;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.sort;
 
 public class FundRepositoryImpl implements FundRepositoryCustom {
 
@@ -60,5 +68,35 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
             return result.getN();
         else
             return 0;
+    }
+
+    @Override
+    public List<String> getDistinctSedol() {
+
+        return mongoTemplate.getCollection("fund").distinct("sedol");
+    }
+
+    @Override
+    public AggregationResults<Fund> getFundWithYieldMoreThan (double yield) {
+        Aggregation aggFund = newAggregation(
+                match(Criteria.where("yield").gt(yield)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
+        );
+
+        return mongoTemplate.aggregate(aggFund, Fund.class, Fund.class);
+    }
+
+    @Override
+    public AggregationResults<Fund> getPlusFundWithYieldMoreThan (double yield) {
+        Aggregation aggPlusFund = newAggregation(
+                match(Criteria.where("yield").gt(yield)), sort(Sort.Direction.DESC, "yield").and(Sort.Direction.ASC, "sedol")
+        );
+
+        return mongoTemplate.aggregate(aggPlusFund, Fund.class, Fund.class);
+    }
+
+    @Override
+    public List<String> getDistinctUpdated() {
+
+        return mongoTemplate.getCollection("fund").distinct("updated");
     }
 }

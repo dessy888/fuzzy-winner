@@ -14,4 +14,10 @@ public interface FundInfosRepository extends MongoRepository<FundInfos, Long>, F
 
     @Query("{sedol: '?0', isin: '?1'}")
     FundInfos findISIN(String sedol, String isin);
+
+    @Query(value="{}", fields="{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1}")
+    List<FundInfos> findAllDistinct(Sort sort);
+
+    @Query("{plusFund: {$ne : \"false\"}}")
+    List<FundInfos> findPlusFunds(Sort sort);
 }

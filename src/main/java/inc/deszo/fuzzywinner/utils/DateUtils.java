@@ -1,7 +1,13 @@
 package inc.deszo.fuzzywinner.utils;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.FormatStyle;
 
 /**
  * Created by deszo on 08/06/2017.
@@ -16,5 +22,97 @@ public class DateUtils {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
         return now.format(formatter);
+    }
+
+    public static String getDateFromISODate(String isoDate, String format) {
+
+        DateTimeFormatter isoDateParser = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(DateTimeFormatter.ISO_LOCAL_DATE)
+                .optionalStart()
+                .appendLiteral('T')
+                .append(DateTimeFormatter.ISO_TIME)
+                .toFormatter();
+
+        LocalDateTime formatDateTime = LocalDateTime.parse(isoDate, isoDateParser);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        return formatDateTime.format(formatter);
+    }
+
+    public static String addYearToDate(String date, String format, int year) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        LocalDate localDate = LocalDate.parse(date, formatter);
+
+        return localDate.plusYears(year).format(formatter);
+    }
+
+    public static String addDayToDate(String date, String format, int day) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        LocalDate localDate = LocalDate.parse(date, formatter);
+
+        return localDate.plusDays(day).format(formatter);
+    }
+
+    public static String getEndDateForHistoricalPrices(String startDate, String format) {
+
+        String todayDate = getTodayDate(format);
+        String endDate = DateUtils.addYearToDate(startDate, format, 1);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        LocalDate localTodayDate = LocalDate.parse(todayDate, formatter);
+        LocalDate localEndDate = LocalDate.parse(endDate, formatter);
+
+        if (localTodayDate.compareTo(localEndDate) >= 0)
+            return endDate;
+        else
+            return todayDate;
+    }
+
+    public static boolean isLessThanOrEqualToDate(String firstDate, String secondDate, String format) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        LocalDate localFirstDate = LocalDate.parse(firstDate, formatter);
+        LocalDate localSecondDate = LocalDate.parse(secondDate, formatter);
+
+        return localFirstDate.compareTo(localSecondDate) <= 0;
+    }
+
+    public static String getDatefromLongFormat(String longDate, String format) {
+
+        DateTimeFormatter longFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        LocalDate localDate = LocalDate.parse(longDate, longFormatter);
+
+        return localDate.format(formatter);
+    }
+
+    public static String getDatefromFormat(String date, String oldFormat, String newFormat) {
+
+        DateTimeFormatter oldFormatter = DateTimeFormatter.ofPattern(oldFormat);
+        DateTimeFormatter newFormatter = DateTimeFormatter.ofPattern(newFormat);
+
+        LocalDate localDate = LocalDate.parse(date, oldFormatter);
+
+        return localDate.format(newFormatter);
+    }
+
+    public static LocalDate getDate(String date, String format) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        return LocalDate.parse(date, formatter);
+    }
+
+    public static String getDate(LocalDate date , String format) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+        return date.format(formatter);
     }
 }

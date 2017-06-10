@@ -1,17 +1,13 @@
 package inc.deszo.fuzzywinner.utils;
 
-import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.FormatStyle;
+import java.util.Date;
 
-/**
- * Created by deszo on 08/06/2017.
- */
 public class DateUtils {
 
     public static String STANDARD_FORMAT = "dd/MM/yyyy";
@@ -84,7 +80,7 @@ public class DateUtils {
 
     public static String getDatefromLongFormat(String longDate, String format) {
 
-        DateTimeFormatter longFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL);
+        DateTimeFormatter longFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, y");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
         LocalDate localDate = LocalDate.parse(longDate, longFormatter);
@@ -102,11 +98,18 @@ public class DateUtils {
         return localDate.format(newFormatter);
     }
 
-    public static LocalDate getDate(String date, String format) {
+    public static LocalDate getLocalDate(String date, String format) {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
         return LocalDate.parse(date, formatter);
+    }
+
+    public static Date getDate(String date, String format) throws ParseException {
+
+        SimpleDateFormat formatter = new SimpleDateFormat(format);
+
+        return formatter.parse(date);
     }
 
     public static String getDate(LocalDate date , String format) {
@@ -114,5 +117,12 @@ public class DateUtils {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
         return date.format(formatter);
+    }
+
+    public static String getDate(Date date, String format) {
+
+        SimpleDateFormat formatter = new SimpleDateFormat(format);
+
+        return formatter.format(date);
     }
 }

@@ -4,14 +4,18 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import inc.deszo.fuzzywinner.model.Fund;
-import inc.deszo.fuzzywinner.model.FundHistoryPrices;
-import inc.deszo.fuzzywinner.model.FundInfos;
-import inc.deszo.fuzzywinner.repository.FundHistoryPricesRepository;
-import inc.deszo.fuzzywinner.repository.FundInfosRepository;
-import inc.deszo.fuzzywinner.repository.FundRepository;
+import inc.deszo.fuzzywinner.model.fund.Fund;
+import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
+import inc.deszo.fuzzywinner.model.fund.FundInfos;
+import inc.deszo.fuzzywinner.repository.fund.FundHistoryPricesRepository;
+import inc.deszo.fuzzywinner.repository.fund.FundInfosRepository;
+import inc.deszo.fuzzywinner.repository.fund.FundPerformanceRepository;
+import inc.deszo.fuzzywinner.repository.fund.FundRepository;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.jsoup.HttpStatusException;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +27,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
@@ -37,13 +40,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.text.ParseException;
 import java.util.List;
 
 @SpringBootApplication
@@ -62,6 +62,9 @@ public class Application implements CommandLineRunner {
     @Autowired
     private FundHistoryPricesRepository fundHistoryPricesRepository;
 
+    @Autowired
+    private FundPerformanceRepository fundPerformanceRepository;
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
@@ -74,7 +77,9 @@ public class Application implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        loadFunds(false, false, true);
+        setup(false);
+
+        loadFunds(true, true);
 
         updateFundsInfos(true);
 
@@ -83,12 +88,16 @@ public class Application implements CommandLineRunner {
         runStatistics();
     }
 
-    public void loadFunds(boolean deleteAll, boolean updateFundInfos, boolean updatePlusFund) throws IOException {
-
+    private void setup(boolean deleteAll) {
         if (deleteAll) {
             fundRepository.deleteAll();
             fundInfosRepository.deleteAll();
+            fundHistoryPricesRepository.deleteAll();
+            fundPerformanceRepository.deleteAll();
         }
+    }
+
+    private void loadFunds(boolean updateFundInfos, boolean updatePlusFund) throws IOException, ParseException {
 
         int numOfFundsUpdated = 0;
         int numOfFundCompany = 0;
@@ -113,15 +122,15 @@ public class Application implements CommandLineRunner {
                     Fund newFund = new ObjectMapper().treeToValue(objNode, Fund.class);
 
                     String sedol = newFund.getSedol();
-                    String updated = newFund.getUpdated();
+                    String updated = newFund.getUpdatedLocalDateString();
 
-                    Fund loadedFund = fundRepository.updatedFund(sedol, updated);
+                    Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
                     if (loadedFund == null) {
                         logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdated());
                         fundRepository.save(newFund);
                         numOfFundsUpdated++;
                     } else {
-                        logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdated());
+                        logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
                     }
 
                     if (updatePlusFund) {
@@ -142,7 +151,7 @@ public class Application implements CommandLineRunner {
         logger.info("Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
     }
 
-    public void updateFundsInfos(boolean onlyNewOnes) {
+    private void updateFundsInfos(boolean onlyNewOnes) throws ParseException {
 
         int numOfISINLoaded = 0;
 
@@ -168,7 +177,7 @@ public class Application implements CommandLineRunner {
         logger.info("Number of updated ISIN: {}", numOfISINLoaded);
     }
 
-    public boolean updateFundInfos(String sedol) {
+    private boolean updateFundInfos(String sedol) throws ParseException {
 
         boolean success = false;
 
@@ -194,7 +203,7 @@ public class Application implements CommandLineRunner {
             }
 
             //update isin
-            Document keyFeaturesDoc = null;
+            Document keyFeaturesDoc;
             keyFeaturesDoc = Jsoup.connect(redirected + "/key-features").timeout(0).get();
 
             logger.debug("Key Features: {}", keyFeaturesDoc.html());
@@ -220,10 +229,7 @@ public class Application implements CommandLineRunner {
                 }
             }
 
-        } catch (HttpStatusException hse) {
-            logger.info("No market data for sedol {}.", sedol);
-
-        } catch (NullPointerException npe) {
+        } catch (HttpStatusException | NullPointerException e) {
             logger.info("No market data for sedol {}.", sedol);
 
         } catch (IOException e) {
@@ -233,7 +239,7 @@ public class Application implements CommandLineRunner {
         return success;
     }
 
-    public void updateFundsHistoryPrices(boolean onlyPlusFunds) throws IOException {
+    private void updateFundsHistoryPrices(boolean onlyPlusFunds) throws IOException, ParseException {
 
         int numOfFundsLoaded = 0;
 
@@ -249,12 +255,12 @@ public class Application implements CommandLineRunner {
             logger.info("Starting download of historical prices for: {}, {}, {}, {}", fundInfo.getSedol(),
                     fundInfo.getIsin(), fundInfo.getInceptionDate(), fundInfo.getFtSymbol());
 
-            updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(), fundInfo.getInceptionDate(), fundInfo.getFtSymbol());
+            updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(), fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol());
             logger.info("Download completed for: {}", fundInfo.getSedol());
         }
     }
 
-    public void updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException {
+    private void updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException, ParseException {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -262,12 +268,14 @@ public class Application implements CommandLineRunner {
         ObjectMapper mapper = new ObjectMapper();
         JsonFactory factory = mapper.getFactory();
 
+        boolean updateInceptionDateFormat = false;
+
         if (inceptionDate == null || ftSymbol == null) {
 
-            MultiValueMap<String, String> map = new LinkedMultiValueMap<String, String>();
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
             map.add("searchTerm", isin);
 
-            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(map, headers);
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
             ResponseEntity<String> ftCompanyLookupResponse = restTemplate.
                     postForEntity("http://funds.ft.com/Remote/UK/API/CompanyLookup?projectType=GlobalFunds", request,
@@ -315,16 +323,21 @@ public class Application implements CommandLineRunner {
                     if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
                         logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
                     }
+
+                    inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, "yyyy/MM/dd");
                 } else {
                     logger.info("No inceptionDate, hence skipped.");
                     return;
-                /*Document ftSummaryDoc = Jsoup.connect("https://markets.ft.com/data/funds/tearsheet/summary?s=" +
-                        ftIsin).timeout(0).get();
-                inceptionDate = DateUtils.getDatefromFormat(
-                        ftHistoricDoc.select("th:contains(Launch date)").first().parent().child(1).text(),
-                        "dd MMM yyyy", "yyyy/MM/dd");*/
                 }
+            } else {
+                updateInceptionDateFormat = true;
             }
+        } else {
+            updateInceptionDateFormat = true;
+        }
+
+        if (updateInceptionDateFormat) {
+            inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, "yyyy/MM/dd");
         }
 
         logger.info("ISIN {}, inception: {}, symbol: {}", isin, inceptionDate, ftSymbol);
@@ -332,7 +345,7 @@ public class Application implements CommandLineRunner {
         //now get the historical prices year by year
 
         //check the last date it is in the database
-        String startDate = "";
+        String startDate;
         List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.lastUpdated(sedol, isin, ftSymbol);
         if (fundHistoryPrices.size() > 0) {
             startDate = DateUtils.addDayToDate(DateUtils.getDate(fundHistoryPrices.get(0).getCobDate(), "yyyy/MM/dd"),
@@ -348,16 +361,16 @@ public class Application implements CommandLineRunner {
             logger.info("Loading Historical Prices from {} to {}", startDate, endDate);
 
             String historicalPriceAppURL = "https://markets.ft.com/data/equities/ajax/get-historical-prices?startDate=" +
-                    URLEncoder.encode(startDate) + "&endDate=" + URLEncoder.encode(endDate) + "&symbol=" + ftSymbol;
+                    URLEncoder.encode(startDate, "UTF-8") + "&endDate=" + URLEncoder.encode(endDate, "UTF-8") + "&symbol=" + ftSymbol;
             logger.info("Loading Historical Prices using URL: {}", historicalPriceAppURL);
 
-            MultiValueMap<String, String> historicalPriceAppMap = new LinkedMultiValueMap<String, String>();
+            MultiValueMap<String, String> historicalPriceAppMap = new LinkedMultiValueMap<>();
             historicalPriceAppMap.add("startDate", startDate);
             historicalPriceAppMap.add("endDate", endDate);
             historicalPriceAppMap.add("symbol", ftSymbol);
 
             HttpEntity<MultiValueMap<String, String>> historicalPriceAppRequest = new
-                    HttpEntity<MultiValueMap<String, String>>(historicalPriceAppMap, headers);
+                    HttpEntity<>(historicalPriceAppMap, headers);
 
             ResponseEntity<String> ftHistoricalPriceAppResponse = restTemplate.
                     postForEntity("https://markets.ft.com/data/equities/ajax/get-historical-prices",
@@ -370,11 +383,11 @@ public class Application implements CommandLineRunner {
             Elements ftHistoricalPriceElements = ftHistoricalPriceDoc.select("tr");
 
             for (Element ftHistoricalPriceElement : ftHistoricalPriceElements) {
-                String cobDate = DateUtils.getDatefromLongFormat(ftHistoricalPriceElement.
-                                select("span[class='mod-ui-hide-small-below']").first().text(),
+                String cobDate = DateUtils.getDatefromFormat(ftHistoricalPriceElement.
+                                select("span[class='mod-ui-hide-small-below']").first().text(), "EEEE, MMMM d, y",
                         DateUtils.STANDARD_FORMAT);
 
-                Double price = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text());
+                Double price = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text().replace(",", ""));
 
                 logger.info("Date: {}, Price: {}", cobDate, price);
 
@@ -387,7 +400,7 @@ public class Application implements CommandLineRunner {
         }
     }
 
-    public void runStatistics() {
+    private void runStatistics() {
 
         // all funds with yield more than 5% sort by yield and sedol
         AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);
@@ -412,10 +425,6 @@ public class Application implements CommandLineRunner {
                 new MappingMongoConverter(new DefaultDbRefResolver(mongoDbFactory), context);
         converter.setTypeMapper(new DefaultMongoTypeMapper(null));
 
-        MongoTemplate mongoTemplate = new MongoTemplate(mongoDbFactory, converter);
-
-        return mongoTemplate;
-
+        return new MongoTemplate(mongoDbFactory, converter);
     }
-
 }

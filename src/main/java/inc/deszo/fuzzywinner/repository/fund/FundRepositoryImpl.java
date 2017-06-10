@@ -1,8 +1,7 @@
-package inc.deszo.fuzzywinner.repository;
+package inc.deszo.fuzzywinner.repository.fund;
 
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.model.Domain;
-import inc.deszo.fuzzywinner.model.Fund;
+import inc.deszo.fuzzywinner.model.fund.Fund;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -15,14 +14,12 @@ import org.springframework.data.mongodb.core.query.Update;
 import java.util.Date;
 import java.util.List;
 
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.match;
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.newAggregation;
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.sort;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
 public class FundRepositoryImpl implements FundRepositoryCustom {
 
     @Autowired
-    MongoTemplate mongoTemplate;
+    private MongoTemplate mongoTemplate;
 
     @Override
     public int updateFund(String sedol, String isin, String name, String unitType, String loaded, String company,

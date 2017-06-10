@@ -1,12 +1,13 @@
-package inc.deszo.fuzzywinner.model;
+package inc.deszo.fuzzywinner.model.fund;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.springframework.data.annotation.Id;
+import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.text.ParseException;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -68,7 +69,8 @@ public class Fund {
 
     private int numHoldings;
 
-    private String updated;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private Date updated;
 
     public Fund () {
         super();
@@ -79,7 +81,7 @@ public class Fund {
                 String initialCharge, String annualCharge, String annualSaving, String netAnnualCharge,
                 String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
                 String perf48t60m, String fundSize, String incomeFrequency, String paymentType, String numHoldings,
-                String updated) {
+                String updated) throws ParseException {
 
         this(sedol, name, unitType, loaded, company, sector, plusFund, Double.valueOf(price_sell),
                 Double.valueOf(price_buy), Double.valueOf(price_change), Double.valueOf(yield), Double.valueOf(initialCharge),
@@ -93,7 +95,7 @@ public class Fund {
                 String plusFund, double price_sell, double price_buy, double price_change, double yield,
                 double initialCharge, double annualCharge, double annualSaving, double netAnnualCharge,
                 String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
-                String perf48t60m, double fundSize, String incomeFrequency, String paymentType, int numHoldings, String updated) {
+                String perf48t60m, double fundSize, String incomeFrequency, String paymentType, int numHoldings, String updated) throws ParseException {
         this.sedol = sedol;
         this.name = name;
         this.unitType = unitType;
@@ -119,7 +121,7 @@ public class Fund {
         this.incomeFrequency = incomeFrequency;
         this.paymentType = paymentType;
         this.numHoldings = numHoldings;
-        this.updated = updated;
+        this.setUpdated(updated);
     }
 
     public String getSedol() {
@@ -322,11 +324,15 @@ public class Fund {
         this.numHoldings = numHoldings;
     }
 
-    public String getUpdated() {
+    public String getUpdatedLocalDateString() {
+        return DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
+    }
+
+    public Date getUpdated() {
         return updated;
     }
 
-    public void setUpdated(String updated) {
-        this.updated = updated;
+    public void setUpdated(String updated) throws ParseException {
+        this.updated = DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
     }
 }

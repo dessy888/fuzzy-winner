@@ -1,4 +1,4 @@
-package inc.deszo.fuzzywinner.model;
+package inc.deszo.fuzzywinner.model.fund;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import inc.deszo.fuzzywinner.utils.DateUtils;
@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.time.LocalDate;
+import java.text.ParseException;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -33,13 +33,13 @@ public class FundHistoryPrices {
     private double price_close;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate cobDate;
+    private Date cobDate;
 
     public FundHistoryPrices() {
         super();
     }
 
-    public FundHistoryPrices(String sedol, String isin, String ftSymbol, double price_close, String cobDate) {
+    public FundHistoryPrices(String sedol, String isin, String ftSymbol, double price_close, String cobDate) throws ParseException {
         this.sedol = sedol;
         this.isin = isin;
         this.ftSymbol = ftSymbol;
@@ -79,15 +79,15 @@ public class FundHistoryPrices {
         this.price_close = price_close;
     }
 
-    public String getCobDateString() {
+    public String getCobLocalDateString() {
         return DateUtils.getDate(cobDate, DateUtils.STANDARD_FORMAT);
     }
 
-    public LocalDate getCobDate() {
+    public Date getCobDate() {
         return cobDate;
     }
 
-    public void setCobDate(String cobDate) {
+    public void setCobDate(String cobDate) throws ParseException {
         this.cobDate = DateUtils.getDate(cobDate, DateUtils.STANDARD_FORMAT);
     }
 }

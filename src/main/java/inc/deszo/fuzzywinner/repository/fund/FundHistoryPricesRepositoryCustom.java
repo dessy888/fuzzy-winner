@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository;
+package inc.deszo.fuzzywinner.repository.fund;
 
-import inc.deszo.fuzzywinner.model.FundHistoryPrices;
+import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 
 import java.util.List;
 

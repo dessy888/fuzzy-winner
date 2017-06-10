@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository;
+package inc.deszo.fuzzywinner.repository.fund;
 
-import inc.deszo.fuzzywinner.model.FundHistoryPrices;
+import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -15,7 +15,7 @@ import java.util.List;
 public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesRepositoryCustom {
 
     @Autowired
-    MongoTemplate mongoTemplate;
+    private MongoTemplate mongoTemplate;
 
     @Override
     public List<FundHistoryPrices> lastUpdated(String sedol, String isin, String ftSymbol) {

@@ -1,11 +1,11 @@
-package inc.deszo.fuzzywinner.repository;
+package inc.deszo.fuzzywinner.repository.fund;
 
-import inc.deszo.fuzzywinner.model.Domain;
-import inc.deszo.fuzzywinner.model.Fund;
+import inc.deszo.fuzzywinner.model.fund.Fund;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
+import java.util.Date;
 import java.util.List;
 
 public interface FundRepository extends MongoRepository<Fund, Long>, FundRepositoryCustom {
@@ -22,8 +22,8 @@ public interface FundRepository extends MongoRepository<Fund, Long>, FundReposit
     @Query("{yield: { $gt: ?0 }, plusFund: {$ne : \"false\"}}")
     List<Fund> findPlusFundsByYield(double yield, Sort sort);
 
-    @Query("{sedol: '?0', updated: '?1'}")
-    Fund updatedFund(String sedol, String updated);
+    @Query("{sedol: '?0', updated: ?1}")
+    Fund findFundBySedolUpdated(String sedol, Date updated);
 
     @Query(value="{}", fields="{sedol : 1}")
     List<Fund> findSedolOnly(Sort sort);

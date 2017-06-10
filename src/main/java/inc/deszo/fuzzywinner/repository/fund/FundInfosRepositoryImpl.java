@@ -1,13 +1,15 @@
-package inc.deszo.fuzzywinner.repository;
+package inc.deszo.fuzzywinner.repository.fund;
 
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.model.Domain;
-import inc.deszo.fuzzywinner.model.FundInfos;
+import inc.deszo.fuzzywinner.model.fund.FundInfos;
+import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+
+import java.text.ParseException;
 
 //http://stackoverflow.com/questions/11880924/how-to-add-custom-method-to-spring-data-jpa
 //http://docs.spring.io/spring-data/jpa/docs/current/reference/html/#repositories.single-repository-behaviour
@@ -15,15 +17,15 @@ import org.springframework.data.mongodb.core.query.Update;
 public class FundInfosRepositoryImpl implements FundInfosRepositoryCustom {
 
     @Autowired
-    MongoTemplate mongoTemplate;
+    private MongoTemplate mongoTemplate;
 
     @Override
-    public int updateInceptionDate(String sedol, String inceptionDate, String updated) {
+    public int updateInceptionDate(String sedol, String inceptionDate, String updated) throws ParseException {
 
         Query query = new Query(Criteria.where("sedol").is(sedol));
         Update update = new Update();
-        update.set("inceptionDate", inceptionDate);
-        update.set("updated", updated);
+        update.set("inceptionDate", DateUtils.getDate(inceptionDate, DateUtils.STANDARD_FORMAT));
+        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
         WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 
@@ -34,12 +36,12 @@ public class FundInfosRepositoryImpl implements FundInfosRepositoryCustom {
     }
 
     @Override
-    public int updateFtSymbol(String sedol, String ftSymbol, String updated) {
+    public int updateFtSymbol(String sedol, String ftSymbol, String updated) throws ParseException {
 
         Query query = new Query(Criteria.where("sedol").is(sedol));
         Update update = new Update();
         update.set("ftSymbol", ftSymbol);
-        update.set("updated", updated);
+        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
         WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 
@@ -50,12 +52,12 @@ public class FundInfosRepositoryImpl implements FundInfosRepositoryCustom {
     }
 
     @Override
-    public int updatePlusFund(String sedol, String plusFund, String updated) {
+    public int updatePlusFund(String sedol, String plusFund, String updated) throws ParseException {
 
         Query query = new Query(Criteria.where("sedol").is(sedol));
         Update update = new Update();
         update.set("plusFund", plusFund);
-        update.set("updated", updated);
+        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
         WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 

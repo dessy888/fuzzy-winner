@@ -15,13 +15,19 @@ import java.util.Date;
 @Document(collection = "fundperformance")
 @CompoundIndexes(value =
         {
-                @CompoundIndex(name = "Sedol_cobDate", def = "{'sedol': 1, 'cobDate': 1}", unique = true)
+                @CompoundIndex(name = "Sedol_isin_ftSymbol_cobDate", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1, 'cobDate': 1}", unique = true)
         }
 )
 public class FundPerformance {
 
     @Indexed
     private String sedol;
+
+    private String isin;
+
+    private String ftSymbol;
+
+    private String reportName;
 
     private double _1D;
 
@@ -56,8 +62,6 @@ public class FundPerformance {
     private double _10M;
 
     private double _11M;
-
-    private double _YTD;
 
     private double _1Y;
 
@@ -108,18 +112,34 @@ public class FundPerformance {
         super();
     }
 
-    public FundPerformance(String sedol, double _1D, double _5D, double _1M, double _3M, double _6M, double _YTD,
-                           double _1Y, double _2Y, double _3Y, double _4Y, double _5Y, double _6Y, double _7Y,
-                           double _8Y, double _9Y, double _10Y, double _11Y, double _12Y, double _13Y, double _14Y,
-                           double _15Y, double _16Y, double _17Y, double _18Y, double _19Y, double _20Y, double _ALL,
-                           String cobDate) throws ParseException {
+    public FundPerformance(String sedol, String isin, String ftSymbol, String reportName, double _1D, double _3D,
+                           double _5D, double _1W, double _2W,
+                           double _3W, double _1M, double _2M, double _3M, double _4M, double _5M, double _6M, double _7M,
+                           double _8M, double _9M, double _10M, double _11M, double _1Y, double _2Y, double _3Y, double _4Y,
+                           double _5Y, double _6Y, double _7Y, double _8Y, double _9Y, double _10Y, double _11Y, double _12Y,
+                           double _13Y, double _14Y, double _15Y, double _16Y, double _17Y, double _18Y, double _19Y, double _20Y,
+                           double _ALL, Date cobDate) {
         this.sedol = sedol;
+        this.isin = isin;
+        this.ftSymbol = ftSymbol;
+        this.reportName = reportName;
         this._1D = _1D;
+        this._3D = _3D;
         this._5D = _5D;
+        this._1W = _1W;
+        this._2W = _2W;
+        this._3W = _3W;
         this._1M = _1M;
+        this._2M = _2M;
         this._3M = _3M;
+        this._4M = _4M;
+        this._5M = _5M;
         this._6M = _6M;
-        this._YTD = _YTD;
+        this._7M = _7M;
+        this._8M = _8M;
+        this._9M = _9M;
+        this._10M = _10M;
+        this._11M = _11M;
         this._1Y = _1Y;
         this._2Y = _2Y;
         this._3Y = _3Y;
@@ -141,7 +161,7 @@ public class FundPerformance {
         this._19Y = _19Y;
         this._20Y = _20Y;
         this._ALL = _ALL;
-        this.setCobDate(cobDate);
+        this.cobDate = cobDate;
     }
 
     public String getSedol() {
@@ -152,12 +172,44 @@ public class FundPerformance {
         this.sedol = sedol;
     }
 
+    public String getIsin() {
+        return isin;
+    }
+
+    public void setIsin(String isin) {
+        this.isin = isin;
+    }
+
+    public String getFtSymbol() {
+        return ftSymbol;
+    }
+
+    public void setFtSymbol(String ftSymbol) {
+        this.ftSymbol = ftSymbol;
+    }
+
+    public String getReportName() {
+        return reportName;
+    }
+
+    public void setReportName(String reportName) {
+        this.reportName = reportName;
+    }
+
     public double get_1D() {
         return _1D;
     }
 
     public void set_1D(double _1D) {
         this._1D = _1D;
+    }
+
+    public double get_3D() {
+        return _3D;
+    }
+
+    public void set_3D(double _3D) {
+        this._3D = _3D;
     }
 
     public double get_5D() {
@@ -168,12 +220,44 @@ public class FundPerformance {
         this._5D = _5D;
     }
 
+    public double get_1W() {
+        return _1W;
+    }
+
+    public void set_1W(double _1W) {
+        this._1W = _1W;
+    }
+
+    public double get_2W() {
+        return _2W;
+    }
+
+    public void set_2W(double _2W) {
+        this._2W = _2W;
+    }
+
+    public double get_3W() {
+        return _3W;
+    }
+
+    public void set_3W(double _3W) {
+        this._3W = _3W;
+    }
+
     public double get_1M() {
         return _1M;
     }
 
     public void set_1M(double _1M) {
         this._1M = _1M;
+    }
+
+    public double get_2M() {
+        return _2M;
+    }
+
+    public void set_2M(double _2M) {
+        this._2M = _2M;
     }
 
     public double get_3M() {
@@ -184,6 +268,22 @@ public class FundPerformance {
         this._3M = _3M;
     }
 
+    public double get_4M() {
+        return _4M;
+    }
+
+    public void set_4M(double _4M) {
+        this._4M = _4M;
+    }
+
+    public double get_5M() {
+        return _5M;
+    }
+
+    public void set_5M(double _5M) {
+        this._5M = _5M;
+    }
+
     public double get_6M() {
         return _6M;
     }
@@ -192,12 +292,44 @@ public class FundPerformance {
         this._6M = _6M;
     }
 
-    public double get_YTD() {
-        return _YTD;
+    public double get_7M() {
+        return _7M;
     }
 
-    public void set_YTD(double _YTD) {
-        this._YTD = _YTD;
+    public void set_7M(double _7M) {
+        this._7M = _7M;
+    }
+
+    public double get_8M() {
+        return _8M;
+    }
+
+    public void set_8M(double _8M) {
+        this._8M = _8M;
+    }
+
+    public double get_9M() {
+        return _9M;
+    }
+
+    public void set_9M(double _9M) {
+        this._9M = _9M;
+    }
+
+    public double get_10M() {
+        return _10M;
+    }
+
+    public void set_10M(double _10M) {
+        this._10M = _10M;
+    }
+
+    public double get_11M() {
+        return _11M;
+    }
+
+    public void set_11M(double _11M) {
+        this._11M = _11M;
     }
 
     public double get_1Y() {
@@ -366,6 +498,10 @@ public class FundPerformance {
 
     public void set_ALL(double _ALL) {
         this._ALL = _ALL;
+    }
+
+    public void setCobDate(Date cobDate) {
+        this.cobDate = cobDate;
     }
 
     public String getCobLocalDateString() {

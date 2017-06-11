@@ -1,5 +1,7 @@
 package inc.deszo.fuzzywinner.repository.fund;
 
+import inc.deszo.fuzzywinner.model.fund.FundInfos;
+import org.springframework.dao.DuplicateKeyException;
 import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.fund.FundPerformance;
 import inc.deszo.fuzzywinner.utils.DateUtils;
@@ -10,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.text.ParseException;
+import java.util.Date;
 import java.util.List;
 
 public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryCustom {
@@ -22,17 +25,29 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
     @Autowired
     private FundHistoryPricesRepository fundHistoryPricesRepository;
 
+    @Autowired
+    private FundPerformanceRepository fundPerformanceRepository;
+
+    @Autowired
+    private FundInfosRepository fundInfosRepository;
+
     @Override
     public void calculate(boolean plusFundOnly) throws ParseException {
 
         List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
-        FundPerformance fundPerformance;
 
         for (FundHistoryPrices fund : fundHistoryPrices) {
+
+            //process only plusFund
+            if (plusFundOnly) {
+                FundInfos fundInfos = fundInfosRepository.findFirstBySedol(fund.getSedol());
+                if (fundInfos.getPlusFund().equalsIgnoreCase("false")) {
+                    continue;
+                }
+            }
+
             logger.info("Processing Sedol: {} Isin: {} ftSymbol: {}.", fund.getSedol(),
                     fund.getIsin(), fund.getFtSymbol());
-
-            fundPerformance = new FundPerformance();
 
             //get the last cob fund price
             List<FundHistoryPrices> lastCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
@@ -56,59 +71,77 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
                 logger.info("Inception Close Price: {} on {}.", inceptionClosePrice, inceptionCobDate);
             }
 
-            String todayDate = DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT);
+            //check if performance data has already been calculated.
+            List<FundPerformance> fundPerformances =  fundPerformanceRepository.findFundPeformance(fund.getSedol(),
+                    fund.getIsin(), fund.getFtSymbol(), DateUtils.getDate(lastCobDate, DateUtils.STANDARD_FORMAT));
 
-            //1D performance
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-1D");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-3D");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-5D");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-1W");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-2W");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-3W");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-1M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-2M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-3M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-4M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-5M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-6M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-7M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-8M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-9M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-10M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-11M");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-1Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-2Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-3Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-4Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-5Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-6Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-7Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-8Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-9Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-10Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-11Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-12Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-13Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-14Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-15Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-16Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-17Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-18Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-19Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, "-20Y");
-            calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), todayDate, inceptionCobDate);
+            if (fundPerformances.size() > 0) {
+                logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data already calculated for {}!", fund.getSedol(),
+                        fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+            } else {
+                FundPerformance fundPerformance = new FundPerformance();
+                fundPerformance.setSedol(fund.getSedol());
+                fundPerformance.setIsin(fund.getIsin());
+                fundPerformance.setFtSymbol(fund.getFtSymbol());
+                fundPerformance.setReportName("PerformanceFromDate");
+                fundPerformance.set_1D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1D"));
+                fundPerformance.set_3D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3D"));
+                fundPerformance.set_5D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5D"));
+                fundPerformance.set_1W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1W"));
+                fundPerformance.set_2W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2W"));
+                fundPerformance.set_3W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3W"));
+                fundPerformance.set_1M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1M"));
+                fundPerformance.set_2M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2M"));
+                fundPerformance.set_3M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3M"));
+                fundPerformance.set_4M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "4M"));
+                fundPerformance.set_5M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5M"));
+                fundPerformance.set_6M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "6M"));
+                fundPerformance.set_7M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "7M"));
+                fundPerformance.set_8M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "8M"));
+                fundPerformance.set_9M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "9M"));
+                fundPerformance.set_10M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "10M"));
+                fundPerformance.set_11M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "11M"));
+                fundPerformance.set_1Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1Y"));
+                fundPerformance.set_2Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2Y"));
+                fundPerformance.set_3Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3Y"));
+                fundPerformance.set_4Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "4Y"));
+                fundPerformance.set_5Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5Y"));
+                fundPerformance.set_6Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "6Y"));
+                fundPerformance.set_7Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "7Y"));
+                fundPerformance.set_8Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "8Y"));
+                fundPerformance.set_9Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "9Y"));
+                fundPerformance.set_10Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "10Y"));
+                fundPerformance.set_11Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "11Y"));
+                fundPerformance.set_12Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "12Y"));
+                fundPerformance.set_13Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "13Y"));
+                fundPerformance.set_14Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "14Y"));
+                fundPerformance.set_15Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "15Y"));
+                fundPerformance.set_16Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "16Y"));
+                fundPerformance.set_17Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "17Y"));
+                fundPerformance.set_18Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "18Y"));
+                fundPerformance.set_19Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "19Y"));
+                fundPerformance.set_20Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "20Y"));
+                fundPerformance.set_ALL(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, inceptionCobDate));
+                fundPerformance.setCobDate(lastCobDate);
 
+                fundPerformanceRepository.save(fundPerformance);
+                logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!", fund.getSedol(),
+                    fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+            }
         }
     }
 
-    private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String todayDate, String dateDiff) throws ParseException {
+    private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String lastCobDate, String dateDiff) throws ParseException {
 
         String date;
+        String tenor;
 
         if (dateDiff.length() == 10) {
             date = dateDiff;
+            tenor = "ALL";
         } else {
-            date = DateUtils.addToDate(todayDate, DateUtils.STANDARD_FORMAT, dateDiff);
+            date = DateUtils.addToDate(lastCobDate, DateUtils.STANDARD_FORMAT, "-" + dateDiff);
+            tenor = dateDiff;
         }
 
         List<FundHistoryPrices> price = fundHistoryPricesRepository.getFundPriceByDate(fundLastCob.getSedol(),
@@ -126,7 +159,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
             priceDiff = fundLastCob.getPrice_close() - closePrice;
             priceDiffInPercent = MathUtils.round((priceDiff / closePrice) * 100.0, 1);
-            logger.info("{} {} {} vs {} {} -> {}.", dateDiff, closePrice, cobDate, fundLastCob.getPrice_close(),
+            logger.info("{} {} {} vs {} {} -> {}%", tenor, closePrice, cobDate, fundLastCob.getPrice_close(),
                     fundLastCob.getCobLocalDateString(), priceDiffInPercent);
         }
 

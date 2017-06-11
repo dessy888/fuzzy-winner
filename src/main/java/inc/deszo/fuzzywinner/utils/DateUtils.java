@@ -46,12 +46,18 @@ public class DateUtils {
         switch (units) {
             case "D":
                 calDate = addDayToDate(date, format, num);
+                break;
             case "W":
                 calDate = addWeekToDate(date, format, num);
+                break;
             case "M":
                 calDate = addMonthToDate(date, format, num);
+                break;
             case "Y":
                 calDate = addYearToDate(date, format, num);
+                break;
+            default:
+                break;
         }
 
         return calDate;

@@ -21,5 +21,5 @@ public interface FundRepositoryCustom {
 
     AggregationResults<Fund> getPlusFundWithYieldMoreThan (double yield);
 
-    List<String> getDistinctUpdated();
+    List<Date> getDistinctUpdated();
 }

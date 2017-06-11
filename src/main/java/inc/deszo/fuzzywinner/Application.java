@@ -44,6 +44,7 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.ParseException;
+import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -83,13 +84,13 @@ public class Application implements CommandLineRunner {
         setup(false);
 
         // set updateFundInfo to true very first time repo is populated
-        //loadFunds(false, true);
+        loadFunds(false, true);
 
-        //updateFundsInfos(true);
+        updateFundsInfos(false);
 
-        updateFundsHistoryPrices(true);
+        updateFundsHistoryPrices(false);
 
-        //runStatistics();
+        runStatistics();
     }
 
     private void setup(boolean deleteAll) {
@@ -225,7 +226,7 @@ public class Application implements CommandLineRunner {
                 }
             }
 
-            //update InceptionDate
+            //update InceptionDate from HL first otherwise use the ones from FT
             if (!launchDate.equalsIgnoreCase("n/a")) {
                 String inceptionDate = DateUtils.getDatefromFormat(launchDate, "d MMMM yyyy", DateUtils.STANDARD_FORMAT);
                 if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
@@ -260,15 +261,25 @@ public class Application implements CommandLineRunner {
         }
 
         for (FundInfos fundInfo : fundInfos) {
-            logger.info("Starting download of historical prices for: {}, {}, {}, {}", fundInfo.getSedol(),
-                    fundInfo.getIsin(), fundInfo.getInceptionDate(), fundInfo.getFtSymbol());
 
-            updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(), fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol());
+            if (fundInfo.getInceptionDate() == null) {
+                logger.info("No inception date for Sedol: {} {} {} {} hence skipped!", fundInfo.getSedol(),
+                        fundInfo.getIsin(), fundInfo.getFtSymbol(), fundInfo.getPlusFund());
+                continue;
+            }
+
+            logger.info("Starting download of historical prices for: {}, {}, {}, {}, {}", fundInfo.getSedol(),
+                    fundInfo.getIsin(), fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol(), fundInfo.getPlusFund());
+
+            numOfFundsLoaded += updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(),
+                    fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol());
             logger.info("Download completed for: {}", fundInfo.getSedol());
         }
+
+        logger.info("Fund History Prices download for {} funds.", numOfFundsLoaded);
     }
 
-    private void updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException, ParseException {
+    private int updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException, ParseException {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -277,6 +288,8 @@ public class Application implements CommandLineRunner {
         JsonFactory factory = mapper.getFactory();
 
         boolean updateInceptionDateFormat = false;
+
+        boolean pricesSaved = false;
 
         if (inceptionDate == null || ftSymbol == null) {
 
@@ -316,6 +329,7 @@ public class Application implements CommandLineRunner {
                 }
             }
 
+            // only update with FT inceptionDate if it is null. HL ones are more accurate.
             if (inceptionDate == null) {
                 String inceptionISODate = null;
 
@@ -335,7 +349,7 @@ public class Application implements CommandLineRunner {
                     inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, "yyyy/MM/dd");
                 } else {
                     logger.info("No inceptionDate, hence skipped.");
-                    return;
+                    return 0;
                 }
             } else {
                 updateInceptionDateFormat = true;
@@ -402,31 +416,34 @@ public class Application implements CommandLineRunner {
 
                 FundHistoryPrices fundHistoryPrice = new FundHistoryPrices(sedol, isin, ftSymbol, price, cobDate);
                 fundHistoryPricesRepository.save(fundHistoryPrice);
+                pricesSaved = true;
             }
 
             startDate = DateUtils.addDayToDate(endDate, "yyyy/MM/dd", 1);
             endDate = DateUtils.getEndDateForHistoricalPrices(endDate, "yyyy/MM/dd");
         }
+
+        return (pricesSaved) ? 1 : 0;
     }
 
     private void runStatistics() throws ParseException {
 
         //calculate fund performance
-        fundPerformanceRepository.calculate(false);
+        fundPerformanceRepository.calculate(true);
 
         // all funds with yield more than 5% sort by yield and sedol
         AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);
         fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
         // all plus funds with yield more than 4% sort by yield and sedol
         AggregationResults<Fund> plusFundResults = fundRepository.getPlusFundWithYieldMoreThan(4.0);
         plusFundResults.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdated(), fund.getYield()));
+                fund.getFundSize(), fund.getPrice_sell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
         // all updated dates
-        List<String> updatedDates = fundRepository.getDistinctUpdated();
-        updatedDates.forEach((date) -> logger.info("Updated Date {}.", date));
+        List<Date> updatedDates = fundRepository.getDistinctUpdated();
+        updatedDates.forEach((date) -> logger.info("Updated Date {}.", DateUtils.getDate(date, DateUtils.STANDARD_FORMAT)));
     }
 
     @Bean

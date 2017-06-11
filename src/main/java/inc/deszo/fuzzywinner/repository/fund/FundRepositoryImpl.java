@@ -92,7 +92,7 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
     }
 
     @Override
-    public List<String> getDistinctUpdated() {
+    public List<Date> getDistinctUpdated() {
 
         return mongoTemplate.getCollection("fund").distinct("updated");
     }

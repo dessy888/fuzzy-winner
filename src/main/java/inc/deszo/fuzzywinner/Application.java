@@ -83,9 +83,9 @@ public class Application implements CommandLineRunner {
         setup(false);
 
         // set updateFundInfo to true very first time repo is populated
-        loadFunds(false, true);
+        //loadFunds(false, true);
 
-        updateFundsInfos(true);
+        //updateFundsInfos(true);
 
         updateFundsHistoryPrices(true);
 
@@ -358,10 +358,11 @@ public class Application implements CommandLineRunner {
         if (fundHistoryPrices.size() > 0) {
             startDate = DateUtils.addDayToDate(DateUtils.getDate(fundHistoryPrices.get(0).getCobDate(), "yyyy/MM/dd"),
                     "yyyy/MM/dd", 1);
+            logger.info("Fund history prices already updated. Will update from: {}", startDate);
         } else {
             startDate = inceptionDate;
+            logger.info("Fund prices will updated from: {}", startDate);
         }
-        logger.info("Fund prices will updated from: {}", startDate);
 
         String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, "yyyy/MM/dd");
 
@@ -439,3 +440,4 @@ public class Application implements CommandLineRunner {
         return new MongoTemplate(mongoDbFactory, converter);
     }
 }
+

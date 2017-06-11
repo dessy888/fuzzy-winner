@@ -97,3 +97,4 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
         return mongoTemplate.getCollection("fund").distinct("updated");
     }
 }
+

@@ -82,7 +82,7 @@ public class FundInfos {
     }
 
     public String getInceptionLocalDate() {
-        return DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
+        return DateUtils.getDate(inceptionDate, DateUtils.STANDARD_FORMAT);
     }
 
     public Date getInceptionDate() {

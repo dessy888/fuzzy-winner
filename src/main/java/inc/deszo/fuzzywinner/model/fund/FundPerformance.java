@@ -25,13 +25,37 @@ public class FundPerformance {
 
     private double _1D;
 
+    private double _3D;
+
     private double _5D;
+
+    private double _1W;
+
+    private double _2W;
+
+    private double _3W;
 
     private double _1M;
 
+    private double _2M;
+
     private double _3M;
 
+    private double _4M;
+
+    private double _5M;
+
     private double _6M;
+
+    private double _7M;
+
+    private double _8M;
+
+    private double _9M;
+
+    private double _10M;
+
+    private double _11M;
 
     private double _YTD;
 

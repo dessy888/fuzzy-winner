@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.ParseException;
 import java.util.List;
+import java.util.TimeZone;
 
 @SpringBootApplication
 public class Application implements CommandLineRunner {
@@ -76,6 +77,8 @@ public class Application implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
         setup(false);
 
@@ -126,7 +129,7 @@ public class Application implements CommandLineRunner {
 
                     Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
                     if (loadedFund == null) {
-                        logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdated());
+                        logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
                         fundRepository.save(newFund);
                         numOfFundsUpdated++;
                     } else {
@@ -190,18 +193,6 @@ public class Application implements CommandLineRunner {
             String launchDate = launchDateElement.text().trim();
             String redirected = searchDoc.location();
 
-            //update InceptionDate
-            if (!launchDate.equalsIgnoreCase("n/a")) {
-                String inceptionDate = DateUtils.getDatefromFormat(launchDate, "d MMMM yyyy", DateUtils.STANDARD_FORMAT);
-                if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-                    logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
-                } else {
-                    logger.info("Inception date for sedol {}: {} NOT updated.", sedol, inceptionDate);
-                }
-            } else {
-                logger.info("Inception date for sedol {}: {} NOT updated.", sedol, launchDate);
-            }
-
             //update isin
             Document keyFeaturesDoc;
             keyFeaturesDoc = Jsoup.connect(redirected + "/key-features").timeout(0).get();
@@ -227,6 +218,18 @@ public class Application implements CommandLineRunner {
                 } else {
                     logger.info("ISIN: {} for SEDOL {} already exist.", isin, sedol);
                 }
+            }
+
+            //update InceptionDate
+            if (!launchDate.equalsIgnoreCase("n/a")) {
+                String inceptionDate = DateUtils.getDatefromFormat(launchDate, "d MMMM yyyy", DateUtils.STANDARD_FORMAT);
+                if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                    logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
+                } else {
+                    logger.info("Inception date for sedol {}: {} NOT updated.", sedol, inceptionDate);
+                }
+            } else {
+                logger.info("Inception date for sedol {}: {} NOT updated.", sedol, launchDate);
             }
 
         } catch (HttpStatusException | NullPointerException e) {
@@ -346,7 +349,7 @@ public class Application implements CommandLineRunner {
 
         //check the last date it is in the database
         String startDate;
-        List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.lastUpdated(sedol, isin, ftSymbol);
+        List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getLastUpdated(sedol, isin, ftSymbol);
         if (fundHistoryPrices.size() > 0) {
             startDate = DateUtils.addDayToDate(DateUtils.getDate(fundHistoryPrices.get(0).getCobDate(), "yyyy/MM/dd"),
                     "yyyy/MM/dd", 1);
@@ -401,6 +404,9 @@ public class Application implements CommandLineRunner {
     }
 
     private void runStatistics() {
+
+        //calculate fund performance
+        fundPerformanceRepository.calculate(false);
 
         // all funds with yield more than 5% sort by yield and sedol
         AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);

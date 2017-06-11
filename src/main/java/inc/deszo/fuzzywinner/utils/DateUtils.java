@@ -36,12 +36,49 @@ public class DateUtils {
         return formatDateTime.format(formatter);
     }
 
+    public static String addToDate(String date, String format, String tenor) {
+
+        String calDate = "";
+
+        int num = Integer.valueOf(tenor.substring(0, tenor.length() - 1));
+        String units = tenor.substring(tenor.length() - 1, tenor.length());
+
+        switch (units) {
+            case "D":
+                calDate = addDayToDate(date, format, num);
+            case "W":
+                calDate = addWeekToDate(date, format, num);
+            case "M":
+                calDate = addMonthToDate(date, format, num);
+            case "Y":
+                calDate = addYearToDate(date, format, num);
+        }
+
+        return calDate;
+    }
+
     public static String addYearToDate(String date, String format, int year) {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
         LocalDate localDate = LocalDate.parse(date, formatter);
 
         return localDate.plusYears(year).format(formatter);
+    }
+
+    public static String addMonthToDate(String date, String format, int month) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        LocalDate localDate = LocalDate.parse(date, formatter);
+
+        return localDate.plusMonths(month).format(formatter);
+    }
+
+    public static String addWeekToDate(String date, String format, int week) {
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        LocalDate localDate = LocalDate.parse(date, formatter);
+
+        return localDate.plusWeeks(week).format(formatter);
     }
 
     public static String addDayToDate(String date, String format, int day) {

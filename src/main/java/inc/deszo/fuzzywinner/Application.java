@@ -84,9 +84,9 @@ public class Application implements CommandLineRunner {
         setup(false);
 
         // set updateFundInfo to true very first time repo is populated
-        loadFunds(false, true);
+        //loadFunds(false, true);
 
-        updateFundsInfos(false);
+        //updateFundsInfos(true);
 
         updateFundsHistoryPrices(false);
 
@@ -163,11 +163,14 @@ public class Application implements CommandLineRunner {
     private void updateFundsInfos(boolean onlyNewOnes) throws ParseException {
 
         int numOfISINLoaded = 0;
+        int fundCount = 0;
 
         List<String> sedols = fundRepository.getDistinctSedol();
 
         if (onlyNewOnes) {
             for (String sedol : sedols) {
+                fundCount++;
+                logger.info("Fund {}, Sedol {}.", fundCount, sedol);
                 if (fundInfosRepository.findFirstBySedol(sedol) == null) {
                     if (updateFundInfos(sedol)) {
                         numOfISINLoaded++;
@@ -178,6 +181,8 @@ public class Application implements CommandLineRunner {
             }
         } else {
             for (String sedol : sedols) {
+                fundCount++;
+                logger.info("Fund {}, Sedol {}.", fundCount, sedol);
                 updateFundInfos(sedol);
                 numOfISINLoaded++;
             }
@@ -239,7 +244,7 @@ public class Application implements CommandLineRunner {
             }
 
         } catch (HttpStatusException | NullPointerException e) {
-            logger.info("No market data for sedol {}.", sedol);
+            logger.error("No market data for sedol {}.", sedol);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -311,8 +316,14 @@ public class Application implements CommandLineRunner {
             Document ftCompanyLookupResponseDoc = Jsoup.parse(ftCompanyLookupResponseHTML);
             Element ftCompanyLookupResponseHref = ftCompanyLookupResponseDoc.select("a[href]").last();
 
-            String ftIsin = ftCompanyLookupResponseHref.html();
-            logger.info("FT Company LookUp Response ISIN {}: {}", isin, ftIsin);
+            String ftIsin = "";
+            try {
+                ftIsin = ftCompanyLookupResponseHref.html();
+                logger.info("FT Company LookUp Response ISIN {}: {}", isin, ftIsin);
+            } catch (NullPointerException npe) {
+                logger.error("FT Company LookUp Response ISIN {}: NOT FOUND!", isin);
+                return 0;
+            }
 
             //now get the inception date and ftsymbol.
             Document ftHistoricDoc = Jsoup.connect("https://markets.ft.com/data/funds/tearsheet/historical?s=" +
@@ -336,7 +347,7 @@ public class Application implements CommandLineRunner {
                 try {
                     inceptionISODate = ftHistoricalPricesAppJnode.get("inception").textValue();
                 } catch (NullPointerException npe) {
-                    logger.info("Can't find Inception Date, hence will try Launch Date.");
+                    logger.error("Can't find Inception Date, hence will try Launch Date.");
                 }
 
                 if (inceptionISODate != null) {
@@ -429,7 +440,7 @@ public class Application implements CommandLineRunner {
     private void runStatistics() throws ParseException {
 
         //calculate fund performance
-        fundPerformanceRepository.calculate(true);
+        //fundPerformanceRepository.calculate(true);
 
         // all funds with yield more than 5% sort by yield and sedol
         AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);

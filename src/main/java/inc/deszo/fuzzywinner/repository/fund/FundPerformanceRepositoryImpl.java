@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
+import java.text.ParseException;
 import java.util.List;
 
 public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryCustom {
@@ -22,7 +23,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
     private FundHistoryPricesRepository fundHistoryPricesRepository;
 
     @Override
-    public void calculate(boolean plusFundOnly) {
+    public void calculate(boolean plusFundOnly) throws ParseException {
 
         List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
         FundPerformance fundPerformance;
@@ -100,7 +101,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         }
     }
 
-    private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String todayDate, String dateDiff) {
+    private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String todayDate, String dateDiff) throws ParseException {
 
         String date;
 

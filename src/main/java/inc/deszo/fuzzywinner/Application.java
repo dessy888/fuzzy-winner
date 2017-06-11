@@ -82,13 +82,14 @@ public class Application implements CommandLineRunner {
 
         setup(false);
 
-        loadFunds(true, true);
+        // set updateFundInfo to true very first time repo is populated
+        loadFunds(false, true);
 
         updateFundsInfos(true);
 
         updateFundsHistoryPrices(true);
 
-        runStatistics();
+        //runStatistics();
     }
 
     private void setup(boolean deleteAll) {
@@ -138,7 +139,11 @@ public class Application implements CommandLineRunner {
 
                     if (updatePlusFund) {
                         //update plusFund
-                        fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+                        if (fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                            logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
+                        } else {
+                            logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
+                        }
                     }
 
                     if (updateFundInfos) {
@@ -403,7 +408,7 @@ public class Application implements CommandLineRunner {
         }
     }
 
-    private void runStatistics() {
+    private void runStatistics() throws ParseException {
 
         //calculate fund performance
         fundPerformanceRepository.calculate(false);

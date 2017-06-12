@@ -7,11 +7,11 @@ import java.util.List;
 
 public interface FundHistoryPricesRepositoryCustom {
 
-    List<FundHistoryPrices> getDistinctSedol();
+  List<FundHistoryPrices> getDistinctSedol();
 
-    List<FundHistoryPrices> getLastUpdated(String sedol, String isin, String ftSymbol);
+  List<FundHistoryPrices> getLastUpdated(String sedol, String isin, String ftSymbol);
 
-    List<FundHistoryPrices> getOldestPrice(String sedol, String isin, String ftSymbol);
+  List<FundHistoryPrices> getOldestPrice(String sedol, String isin, String ftSymbol);
 
-    List<FundHistoryPrices> getFundPriceByDate(String sedol, String isin, String ftSymbol, String cobDate) throws ParseException;
+  List<FundHistoryPrices> getFundPriceByDate(String sedol, String isin, String ftSymbol, String cobDate) throws ParseException;
 }

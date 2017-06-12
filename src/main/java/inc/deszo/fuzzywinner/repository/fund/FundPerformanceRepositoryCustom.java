@@ -5,7 +5,7 @@ import java.text.ParseException;
 
 public interface FundPerformanceRepositoryCustom {
 
-    void calculate(boolean plusFundOnly) throws ParseException;
+  void calculate(boolean plusFundOnly) throws ParseException;
 
-    void genCSVReport () throws IOException;
+  void genCsvFundReport() throws IOException;
 }

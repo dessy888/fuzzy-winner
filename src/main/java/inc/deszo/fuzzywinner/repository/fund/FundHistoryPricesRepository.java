@@ -10,6 +10,6 @@ import java.util.List;
 
 public interface FundHistoryPricesRepository extends MongoRepository<FundHistoryPrices, Long>, FundHistoryPricesRepositoryCustom {
 
-    @Query(value = "{}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1}")
-    List<FundInfos> findAllDistinct(Sort sort);
+  @Query(value = "{}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1}")
+  List<FundInfos> findAllDistinct(Sort sort);
 }

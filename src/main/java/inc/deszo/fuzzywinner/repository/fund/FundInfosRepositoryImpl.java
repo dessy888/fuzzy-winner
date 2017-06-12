@@ -16,54 +16,57 @@ import java.text.ParseException;
 //Impl postfix of the name on it compared to the core repository interface
 public class FundInfosRepositoryImpl implements FundInfosRepositoryCustom {
 
-    @Autowired
-    private MongoTemplate mongoTemplate;
+  @Autowired
+  private MongoTemplate mongoTemplate;
 
-    @Override
-    public int updateInceptionDate(String sedol, String inceptionDate, String updated) throws ParseException {
+  @Override
+  public int updateInceptionDate(String sedol, String inceptionDate, String updated) throws ParseException {
 
-        Query query = new Query(Criteria.where("sedol").is(sedol));
-        Update update = new Update();
-        update.set("inceptionDate", DateUtils.getDate(inceptionDate, DateUtils.STANDARD_FORMAT));
-        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+    Query query = new Query(Criteria.where("sedol").is(sedol));
+    Update update = new Update();
+    update.set("inceptionDate", DateUtils.getDate(inceptionDate, DateUtils.STANDARD_FORMAT));
+    update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
-        WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
+    WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 
-        if(result!=null)
-            return result.getN();
-        else
-            return 0;
+    if (result != null) {
+      return result.getN();
+    } else {
+      return 0;
     }
+  }
 
-    @Override
-    public int updateFtSymbol(String sedol, String ftSymbol, String updated) throws ParseException {
+  @Override
+  public int updateFtSymbol(String sedol, String ftSymbol, String updated) throws ParseException {
 
-        Query query = new Query(Criteria.where("sedol").is(sedol));
-        Update update = new Update();
-        update.set("ftSymbol", ftSymbol);
-        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+    Query query = new Query(Criteria.where("sedol").is(sedol));
+    Update update = new Update();
+    update.set("ftSymbol", ftSymbol);
+    update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
-        WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
+    WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 
-        if(result!=null)
-            return result.getN();
-        else
-            return 0;
+    if (result != null) {
+      return result.getN();
+    } else {
+      return 0;
     }
+  }
 
-    @Override
-    public int updatePlusFund(String sedol, String plusFund, String updated) throws ParseException {
+  @Override
+  public int updatePlusFund(String sedol, String plusFund, String updated) throws ParseException {
 
-        Query query = new Query(Criteria.where("sedol").is(sedol));
-        Update update = new Update();
-        update.set("plusFund", plusFund);
-        update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+    Query query = new Query(Criteria.where("sedol").is(sedol));
+    Update update = new Update();
+    update.set("plusFund", plusFund);
+    update.set("updated", DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
 
-        WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
+    WriteResult result = mongoTemplate.updateFirst(query, update, FundInfos.class);
 
-        if(result!=null)
-            return result.getN();
-        else
-            return 0;
+    if (result != null) {
+      return result.getN();
+    } else {
+      return 0;
     }
+  }
 }

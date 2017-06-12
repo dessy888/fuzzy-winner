@@ -1,6 +1,12 @@
 package inc.deszo.fuzzywinner.repository.fund;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.mongodb.*;
 import inc.deszo.fuzzywinner.model.fund.FundInfos;
+import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.springframework.dao.DuplicateKeyException;
 import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.fund.FundPerformance;
@@ -11,9 +17,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
+import java.io.*;
 import java.text.ParseException;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+
+import static inc.deszo.fuzzywinner.utils.CSVUtils.csvReader;
+import static inc.deszo.fuzzywinner.utils.CSVUtils.csvWriter;
 
 public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryCustom {
 
@@ -36,6 +45,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
         List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
         int fundCount = 0;
+        int numOfPerformanceCalculated = 0;
 
         for (FundHistoryPrices fund : fundHistoryPrices) {
 
@@ -131,9 +141,10 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
                 fundPerformanceRepository.save(fundPerformance);
                 logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!", fund.getSedol(),
                     fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+                numOfPerformanceCalculated++;
             }
         }
-        logger.info("*****Number of Fund Performance Calculated: {}", fundCount);
+        logger.info("*****Number of Fund Performance Calculated: {}", numOfPerformanceCalculated);
     }
 
     private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String lastCobDate, String dateDiff) throws ParseException {
@@ -169,5 +180,41 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         }
 
         return priceDiffInPercent;
+    }
+
+    @Override
+    public void genCSVReport () throws IOException {
+
+        // performance report
+        String jsFundPerforamnce = MongoUtils.getJSFile("C:/Users/deszo/IdeaProjects/fuzzy-winner/mongodb/queries/fund - excel performance report.js");
+        BasicDBObject obj = new BasicDBObject();
+        obj.append("$eval", jsFundPerforamnce);
+
+        ObjectMapper mapper = new ObjectMapper();
+        CsvMapper csvMapper = new CsvMapper();
+
+        CommandResult commandResult =  mongoTemplate.executeCommand(obj);
+        final JsonNode arrNode = mapper.readTree(commandResult.toJson()).get("retval").get("_batch");
+
+        if (arrNode.isArray()) {
+
+            List<HashMap<String, String>> myArrList = new ArrayList<HashMap<String, String>>();
+
+            for (final JsonNode objNode : arrNode) {
+                HashMap<String, String> map = new HashMap<>();
+                map = mapper.readValue(objNode.toString(), new TypeReference<HashMap<String, String>>() {
+                });
+                myArrList.add(map);
+            }
+
+            File file = new File("C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvReport_" +
+                    DateUtils.getTodayDate("MM_dd_yyyy") + ".csv");
+
+            // Create a File and append if it already exists.
+            Writer writer = new FileWriter(file, true);
+
+            //Copy List of Map Object into CSV format at specified File location.
+            csvWriter(myArrList, writer);
+        }
     }
 }

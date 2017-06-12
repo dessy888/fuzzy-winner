@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.BasicDBObject;
+import com.mongodb.CommandResult;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientURI;
 import inc.deszo.fuzzywinner.model.fund.Fund;
 import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.fund.FundInfos;
@@ -12,6 +16,7 @@ import inc.deszo.fuzzywinner.repository.fund.FundInfosRepository;
 import inc.deszo.fuzzywinner.repository.fund.FundPerformanceRepository;
 import inc.deszo.fuzzywinner.repository.fund.FundRepository;
 import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -27,6 +32,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
@@ -67,6 +73,9 @@ public class Application implements CommandLineRunner {
     @Autowired
     private FundPerformanceRepository fundPerformanceRepository;
 
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
@@ -81,7 +90,7 @@ public class Application implements CommandLineRunner {
 
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-        setup(false);
+        /*setup(false);
 
         // set updateFundInfo to true very first time repo is populated
         loadFunds(false, true);
@@ -90,7 +99,9 @@ public class Application implements CommandLineRunner {
 
         updateFundsHistoryPrices(false);
 
-        runStatistics();
+        runStatistics();*/
+
+        genReports();
     }
 
     private void setup(boolean deleteAll) {
@@ -466,6 +477,11 @@ public class Application implements CommandLineRunner {
         updatedDates.forEach((date) -> logger.info("Updated Date {}.", DateUtils.getDate(date, DateUtils.STANDARD_FORMAT)));
     }
 
+    private void genReports() throws IOException {
+
+        fundPerformanceRepository.genCSVReport();
+    }
+
     @Bean
     public MongoTemplate mongoTemplate(MongoDbFactory mongoDbFactory,
                                        MongoMappingContext context) {
@@ -475,6 +491,18 @@ public class Application implements CommandLineRunner {
         converter.setTypeMapper(new DefaultMongoTypeMapper(null));
 
         return new MongoTemplate(mongoDbFactory, converter);
+    }
+
+    static class OptionsConfig {
+
+        @Bean
+        public MongoClientOptions mongoOptions() {
+            return MongoClientOptions.builder()
+                    .socketTimeout(2000)
+                    .connectTimeout(2000)
+                    .serverSelectionTimeout(2000).build();
+        }
+
     }
 }
 

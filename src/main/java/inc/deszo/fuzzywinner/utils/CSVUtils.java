@@ -10,7 +10,7 @@ import java.util.*;
 
 public class CSVUtils {
 
-    public static void csvWriter(List<Map<String, String>> listOfMap, Writer writer) throws IOException {
+    public static void csvWriter(List<LinkedHashMap<String, String>> listOfMap, Writer writer) throws IOException {
         CsvSchema schema = null;
         CsvSchema.Builder schemaBuilder = CsvSchema.builder();
         if (listOfMap != null && !listOfMap.isEmpty()) {
@@ -21,19 +21,6 @@ public class CSVUtils {
         }
         CsvMapper mapper = new CsvMapper();
         mapper.writer(schema).writeValues(writer).writeAll(listOfMap);
-        writer.flush();
-    }
-
-    public static  void csvWriter(Collection collection, Writer writer) throws IOException {
-        if (collection != null && collection.size() > 0) {
-            CsvMapper mapper = new CsvMapper();
-            Object[] objects = collection.toArray();
-            Class type = objects[0].getClass();
-            CsvSchema schema = mapper.schemaFor(type).withHeader();
-            mapper.writer(schema).writeValues(writer).write(objects);
-        } else {
-            writer.write("No Data");
-        }
         writer.flush();
     }
 

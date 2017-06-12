@@ -90,7 +90,7 @@ public class Application implements CommandLineRunner {
 
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-        /*setup(false);
+        setup(false);
 
         // set updateFundInfo to true very first time repo is populated
         loadFunds(false, true);
@@ -99,7 +99,7 @@ public class Application implements CommandLineRunner {
 
         updateFundsHistoryPrices(false);
 
-        runStatistics();*/
+        runStatistics();
 
         genReports();
     }

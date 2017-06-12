@@ -198,23 +198,26 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
         if (arrNode.isArray()) {
 
-            List<HashMap<String, String>> myArrList = new ArrayList<HashMap<String, String>>();
+            List<LinkedHashMap<String, String>> myArrList = new ArrayList<LinkedHashMap<String, String>>();
 
             for (final JsonNode objNode : arrNode) {
-                HashMap<String, String> map = new HashMap<>();
-                map = mapper.readValue(objNode.toString(), new TypeReference<HashMap<String, String>>() {
+                LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
+                map = mapper.readValue(objNode.toString(), new TypeReference<LinkedHashMap<String, String>>() {
                 });
                 myArrList.add(map);
             }
 
-            File file = new File("C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvReport_" +
-                    DateUtils.getTodayDate("MM_dd_yyyy") + ".csv");
+            String pathname = "C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvReport_" +
+                    DateUtils.getTodayDate("MM_dd_yyyy") + ".csv";
+            File file = new File(pathname);
 
             // Create a File and append if it already exists.
-            Writer writer = new FileWriter(file, true);
+            Writer writer = new FileWriter(file, false);
 
             //Copy List of Map Object into CSV format at specified File location.
             csvWriter(myArrList, writer);
+
+            logger.info("CSV file generated: {}", pathname);
         }
     }
 }

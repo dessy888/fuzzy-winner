@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.mongodb.BasicDBObject;
 import com.mongodb.CommandResult;
+import inc.deszo.fuzzywinner.model.fund.Fund;
 import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.fund.FundInfos;
 import inc.deszo.fuzzywinner.model.fund.FundPerformance;
@@ -44,6 +45,9 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
   @Autowired
   private FundInfosRepository fundInfosRepository;
 
+  @Autowired
+  private FundRepository fundRepository;
+
   @Override
   public void calculate(boolean plusFundOnly) throws ParseException {
 
@@ -68,15 +72,46 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
           fund.getIsin(), fund.getFtSymbol());
 
       //get the last cob fund price
-      List<FundHistoryPrices> lastCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
+      List<FundHistoryPrices> lastFTCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
           fund.getIsin(), fund.getFtSymbol());
-      Double lastClosePrice = 0.0;
-      String lastCobDate = "";
-      for (FundHistoryPrices fundLastCob : lastCobPrice) {
-        lastClosePrice = fundLastCob.getPrice_close();
-        lastCobDate = fundLastCob.getCobLocalDateString();
-        logger.info("Last Close Price: {} on {}.", lastClosePrice, lastCobDate);
+      Double lastFTClosePrice = 0.0;
+      String lastFTCobDate = "";
+      for (FundHistoryPrices fundLastCob : lastFTCobPrice) {
+        lastFTClosePrice = fundLastCob.getPrice_close();
+        lastFTCobDate = fundLastCob.getCobLocalDateString();
+        logger.info("Last FT Close Price: {} on {}.", lastFTClosePrice, lastFTCobDate);
       }
+
+      //get the last updated fund price from HL
+      List<Fund> lastHLCobPrice = fundRepository.getLastUpdated(fund.getSedol());
+      Double lastHLClosePrice = 0.0;
+      String lastHLCobDate = "";
+      for (Fund fundLastCob : lastHLCobPrice) {
+        lastHLClosePrice = fundLastCob.getPrice_sell();
+        lastHLCobDate = fundLastCob.getUpdatedLocalDateString();
+        logger.info("Last HL Close Price: {} on {}.", lastHLClosePrice, lastHLCobDate);
+      }
+
+      // if FT cob date is > than HL cob date, use HL.
+      String lastCobDate = "";
+      FundHistoryPrices lastCobPrice;
+      if (DateUtils.diffBetTwoDates(lastHLCobDate, lastFTCobDate, DateUtils.STANDARD_FORMAT) < 0) {
+
+        //note there is a price format difference between HL and FT so get the closing price from FT.
+        List<FundHistoryPrices> lastFTCobPriceUsingHLCobDate = fundHistoryPricesRepository.getFundPriceByDate(fund.getSedol(),
+            fund.getIsin(), fund.getFtSymbol(), lastHLCobDate);
+        for (FundHistoryPrices fundLastCob : lastFTCobPriceUsingHLCobDate) {
+          lastCobDate = fundLastCob.getCobLocalDateString();
+          logger.info("Last FT Close Price using HL cobDate: {} on {}.", fundLastCob.getPrice_close(),
+              lastCobDate);
+        }
+
+        lastCobPrice = lastFTCobPriceUsingHLCobDate.get(0);
+      } else {
+        lastCobDate = lastFTCobDate;
+        lastCobPrice = lastFTCobPrice.get(0);
+      }
+      logger.info("Last Close Price used: {} on {}.", lastCobPrice.getPrice_close(), lastCobDate);
 
       //get the oldest fund price
       List<FundHistoryPrices> inceptionPrice = fundHistoryPricesRepository.getOldestPrice(fund.getSedol(),
@@ -102,44 +137,44 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         fundPerformance.setIsin(fund.getIsin());
         fundPerformance.setFtSymbol(fund.getFtSymbol());
         fundPerformance.setReportName("PerformanceFromDate");
-        fundPerformance.set_1D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1D"));
-        fundPerformance.set_3D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3D"));
-        fundPerformance.set_5D(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5D"));
-        fundPerformance.set_1W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1W"));
-        fundPerformance.set_2W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2W"));
-        fundPerformance.set_3W(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3W"));
-        fundPerformance.set_1M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1M"));
-        fundPerformance.set_2M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2M"));
-        fundPerformance.set_3M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3M"));
-        fundPerformance.set_4M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "4M"));
-        fundPerformance.set_5M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5M"));
-        fundPerformance.set_6M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "6M"));
-        fundPerformance.set_7M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "7M"));
-        fundPerformance.set_8M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "8M"));
-        fundPerformance.set_9M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "9M"));
-        fundPerformance.set_10M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "10M"));
-        fundPerformance.set_11M(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "11M"));
-        fundPerformance.set_1Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "1Y"));
-        fundPerformance.set_2Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "2Y"));
-        fundPerformance.set_3Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "3Y"));
-        fundPerformance.set_4Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "4Y"));
-        fundPerformance.set_5Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "5Y"));
-        fundPerformance.set_6Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "6Y"));
-        fundPerformance.set_7Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "7Y"));
-        fundPerformance.set_8Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "8Y"));
-        fundPerformance.set_9Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "9Y"));
-        fundPerformance.set_10Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "10Y"));
-        fundPerformance.set_11Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "11Y"));
-        fundPerformance.set_12Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "12Y"));
-        fundPerformance.set_13Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "13Y"));
-        fundPerformance.set_14Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "14Y"));
-        fundPerformance.set_15Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "15Y"));
-        fundPerformance.set_16Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "16Y"));
-        fundPerformance.set_17Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "17Y"));
-        fundPerformance.set_18Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "18Y"));
-        fundPerformance.set_19Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "19Y"));
-        fundPerformance.set_20Y(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, "20Y"));
-        fundPerformance.set_ALL(calculatePerformanceBetweenTwoDates(lastCobPrice.get(0), lastCobDate, inceptionCobDate));
+        fundPerformance.set_1D(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "1D"));
+        fundPerformance.set_3D(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "3D"));
+        fundPerformance.set_5D(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "5D"));
+        fundPerformance.set_1W(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "1W"));
+        fundPerformance.set_2W(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "2W"));
+        fundPerformance.set_3W(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "3W"));
+        fundPerformance.set_1M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "1M"));
+        fundPerformance.set_2M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "2M"));
+        fundPerformance.set_3M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "3M"));
+        fundPerformance.set_4M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "4M"));
+        fundPerformance.set_5M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "5M"));
+        fundPerformance.set_6M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "6M"));
+        fundPerformance.set_7M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "7M"));
+        fundPerformance.set_8M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "8M"));
+        fundPerformance.set_9M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "9M"));
+        fundPerformance.set_10M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "10M"));
+        fundPerformance.set_11M(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "11M"));
+        fundPerformance.set_1Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "1Y"));
+        fundPerformance.set_2Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "2Y"));
+        fundPerformance.set_3Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "3Y"));
+        fundPerformance.set_4Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "4Y"));
+        fundPerformance.set_5Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "5Y"));
+        fundPerformance.set_6Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "6Y"));
+        fundPerformance.set_7Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "7Y"));
+        fundPerformance.set_8Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "8Y"));
+        fundPerformance.set_9Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "9Y"));
+        fundPerformance.set_10Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "10Y"));
+        fundPerformance.set_11Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "11Y"));
+        fundPerformance.set_12Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "12Y"));
+        fundPerformance.set_13Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "13Y"));
+        fundPerformance.set_14Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "14Y"));
+        fundPerformance.set_15Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "15Y"));
+        fundPerformance.set_16Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "16Y"));
+        fundPerformance.set_17Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "17Y"));
+        fundPerformance.set_18Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "18Y"));
+        fundPerformance.set_19Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "19Y"));
+        fundPerformance.set_20Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "20Y"));
+        fundPerformance.set_ALL(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, inceptionCobDate));
         fundPerformance.setCobDate(lastCobDate);
 
         fundPerformanceRepository.save(fundPerformance);

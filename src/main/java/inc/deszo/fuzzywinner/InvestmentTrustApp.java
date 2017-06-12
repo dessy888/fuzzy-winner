@@ -85,18 +85,6 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-    setup(false);
-
-    // set updateFundInfo to true very first time repo is populated
-    loadFunds(false, true);
-
-    updateFundsInfos(true);
-
-    updateFundsHistoryPrices(false);
-
-    runStatistics();
-
-    genFundReports();
   }
 
   private void setup(boolean deleteAll) {

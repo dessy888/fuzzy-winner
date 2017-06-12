@@ -22,4 +22,6 @@ public interface FundRepositoryCustom {
   AggregationResults<Fund> getPlusFundWithYieldMoreThan(double yield);
 
   List<Date> getDistinctUpdated();
+
+  List<Fund> getLastUpdated(String sedol);
 }

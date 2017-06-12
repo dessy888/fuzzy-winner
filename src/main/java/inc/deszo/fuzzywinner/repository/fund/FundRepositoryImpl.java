@@ -2,6 +2,7 @@ package inc.deszo.fuzzywinner.repository.fund;
 
 import com.mongodb.WriteResult;
 import inc.deszo.fuzzywinner.model.fund.Fund;
+import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -96,6 +97,17 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
   public List<Date> getDistinctUpdated() {
 
     return mongoTemplate.getCollection("fund").distinct("updated");
+  }
+
+  @Override
+  public List<Fund> getLastUpdated(String sedol) {
+
+    Query query = new Query();
+    query.limit(1);
+    query.with(new Sort(Sort.Direction.DESC, "updated"));
+    query.addCriteria(Criteria.where("sedol").is(sedol));
+
+    return mongoTemplate.find(query, Fund.class);
   }
 }
 

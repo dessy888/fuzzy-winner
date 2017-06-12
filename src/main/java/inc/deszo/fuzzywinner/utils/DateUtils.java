@@ -176,15 +176,25 @@ public class DateUtils {
 
   public static String getNextWorkingDate(Date date, String format) throws ParseException {
 
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+    SimpleDateFormat formatter = new SimpleDateFormat(format);
     String nextDate = DateUtils.getDate(date, format);
 
     do {
       nextDate = DateUtils.addDayToDate(nextDate, format, 1);
 
-    } while (LocalDate.parse(nextDate, formatter).getDayOfWeek() == DayOfWeek.SATURDAY ||
-        LocalDate.parse(nextDate, formatter).getDayOfWeek() == DayOfWeek.SUNDAY );
+    } while (formatter.parse(nextDate).getDay() == 0 ||
+        formatter.parse(nextDate).getDay() == 6 );
 
     return nextDate;
+  }
+
+  public static int diffBetTwoDates(String date1, String date2, String format) {
+
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+    LocalDate localDate1 = LocalDate.parse(date1, formatter);
+    LocalDate localDate2 = LocalDate.parse(date2, formatter);
+
+    return localDate1.compareTo(localDate2);
   }
 }

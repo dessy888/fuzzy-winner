@@ -13,6 +13,7 @@ import inc.deszo.fuzzywinner.repository.fund.FundInfosRepository;
 import inc.deszo.fuzzywinner.repository.fund.FundPerformanceRepository;
 import inc.deszo.fuzzywinner.repository.fund.FundRepository;
 import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.utils.JsonUtils;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -126,11 +127,11 @@ public class FundApp implements CommandLineRunner {
       String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
       logger.debug(result);
 
-      final JsonNode arrNode = new ObjectMapper().readTree(result).get("results");
+      final JsonNode arrNode = JsonUtils.getMAPPER().readTree(result).get("results");
       if (arrNode.isArray()) {
         for (final JsonNode objNode : arrNode) {
           logger.debug("Loading Fund: {}", objNode.toString());
-          Fund newFund = new ObjectMapper().treeToValue(objNode, Fund.class);
+          Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
 
           String sedol = newFund.getSedol();
           String updated = newFund.getUpdatedLocalDateString();
@@ -298,7 +299,7 @@ public class FundApp implements CommandLineRunner {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-    ObjectMapper mapper = new ObjectMapper();
+    ObjectMapper mapper = JsonUtils.getMAPPER();
     JsonFactory factory = mapper.getFactory();
 
     boolean updateInceptionDateFormat = false;
@@ -366,13 +367,13 @@ public class FundApp implements CommandLineRunner {
         }
 
         if (inceptionISODate != null) {
-          inceptionDate = DateUtils.getDateFromISODate(inceptionISODate, DateUtils.STANDARD_FORMAT);
+          inceptionDate = DateUtils.getDateByIsoDate(inceptionISODate, DateUtils.STANDARD_FORMAT);
 
           if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
             logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
           }
 
-          inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, "yyyy/MM/dd");
+          inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
         } else {
           logger.info("No inceptionDate, hence skipped.");
           return 0;
@@ -385,7 +386,7 @@ public class FundApp implements CommandLineRunner {
     }
 
     if (updateInceptionDateFormat) {
-      inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, "yyyy/MM/dd");
+      inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
     }
 
     logger.info("ISIN {}, inception: {}, symbol: {}", isin, inceptionDate, ftSymbol);
@@ -394,19 +395,21 @@ public class FundApp implements CommandLineRunner {
 
     //check the last date it is in the database
     String startDate;
-    List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getLastUpdated(sedol, isin, ftSymbol);
+    List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository
+        .getLastUpdated(sedol, isin, ftSymbol);
     if (fundHistoryPrices.size() > 0) {
-      startDate = DateUtils.addDayToDate(DateUtils.getDate(fundHistoryPrices.get(0).getCobDate(), "yyyy/MM/dd"),
-          "yyyy/MM/dd", 1);
+      startDate = DateUtils.getNextWorkingDate(fundHistoryPrices.get(0).getCobDate(),
+          DateUtils.FT_FORMAT);
+
       logger.info("Fund history prices already updated. Will update from: {}", startDate);
     } else {
       startDate = inceptionDate;
       logger.info("Fund prices will updated from: {}", startDate);
     }
 
-    String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, "yyyy/MM/dd");
+    String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, DateUtils.FT_FORMAT);
 
-    while (DateUtils.isLessThanOrEqualToDate(startDate, DateUtils.getTodayDate("yyyy/MM/dd"), "yyyy/MM/dd")) {
+    while (DateUtils.isLessThanOrEqualToDate(startDate, DateUtils.getTodayDate(DateUtils.FT_FORMAT), DateUtils.FT_FORMAT)) {
       logger.info("Loading Historical Prices from {} to {}", startDate, endDate);
 
       String historicalPriceAppURL = "https://markets.ft.com/data/equities/ajax/get-historical-prices?startDate=" +
@@ -421,8 +424,8 @@ public class FundApp implements CommandLineRunner {
       HttpEntity<MultiValueMap<String, String>> historicalPriceAppRequest = new
           HttpEntity<>(historicalPriceAppMap, headers);
 
-      ResponseEntity<String> ftHistoricalPriceAppResponse = restTemplate.
-          postForEntity("https://markets.ft.com/data/equities/ajax/get-historical-prices",
+      ResponseEntity<String> ftHistoricalPriceAppResponse = restTemplate
+          .postForEntity("https://markets.ft.com/data/equities/ajax/get-historical-prices",
               historicalPriceAppRequest, String.class);
       JsonParser ftHistoricalPriceParser = factory.createParser(ftHistoricalPriceAppResponse.getBody());
       JsonNode ftHistoricalPriceJNode = mapper.readTree(ftHistoricalPriceParser);
@@ -445,8 +448,8 @@ public class FundApp implements CommandLineRunner {
         pricesSaved = true;
       }
 
-      startDate = DateUtils.addDayToDate(endDate, "yyyy/MM/dd", 1);
-      endDate = DateUtils.getEndDateForHistoricalPrices(endDate, "yyyy/MM/dd");
+      startDate = DateUtils.addDayToDate(endDate, DateUtils.FT_FORMAT, 1);
+      endDate = DateUtils.getEndDateForHistoricalPrices(endDate, DateUtils.FT_FORMAT);
     }
 
     return (pricesSaved) ? 1 : 0;
@@ -473,7 +476,7 @@ public class FundApp implements CommandLineRunner {
   }
 
   private void genFundReports() throws IOException {
-    fundPerformanceRepository.genCSVFundReport();
+    fundPerformanceRepository.genCsvFundReport();
   }
 
   @Bean

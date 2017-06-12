@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -22,18 +23,6 @@ public final class JsonUtils {
   private static final ObjectMapper MAPPER = new ObjectMapper()
       .setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
-      .setDefaultTyping(new ObjectMapper.DefaultTypeResolverBuilder(ObjectMapper.DefaultTyping.NON_FINAL) {
-        {
-          init(JsonTypeInfo.Id.CLASS, null);
-          inclusion(JsonTypeInfo.As.PROPERTY);
-          typeProperty("class");
-        }
-
-        @Override
-        public boolean useForType(final JavaType t) {
-          return !t.isContainerType() && !t.hasRawClass(BigDecimal.class) && super.useForType(t);
-        }
-      })
       .registerModule(new ParameterNamesModule())
       .registerModule(new Jdk8Module())
       .registerModule(new JavaTimeModule());

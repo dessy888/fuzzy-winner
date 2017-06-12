@@ -366,7 +366,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
         }
 
         if (inceptionISODate != null) {
-          inceptionDate = DateUtils.getDateFromISODate(inceptionISODate, DateUtils.STANDARD_FORMAT);
+          inceptionDate = DateUtils.getDateByIsoDate(inceptionISODate, DateUtils.STANDARD_FORMAT);
 
           if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
             logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
@@ -473,7 +473,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
   }
 
   private void genFundReports() throws IOException {
-    fundPerformanceRepository.genCSVFundReport();
+    fundPerformanceRepository.genCsvFundReport();
   }
 
   @Bean

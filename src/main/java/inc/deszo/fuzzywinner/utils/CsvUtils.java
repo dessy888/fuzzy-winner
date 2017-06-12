@@ -13,7 +13,8 @@ import java.util.Map;
 
 public class CsvUtils {
 
-  public static void csvWriter(List<LinkedHashMap<String, String>> listOfMap, Writer writer) throws IOException {
+  public static void csvWriter(List<LinkedHashMap<String, String>> listOfMap, Writer writer)
+      throws IOException {
     CsvSchema schema = null;
     CsvSchema.Builder schemaBuilder = CsvSchema.builder();
     if (listOfMap != null && !listOfMap.isEmpty()) {

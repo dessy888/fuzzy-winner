@@ -1,13 +1,21 @@
 package inc.deszo.fuzzywinner.model.fund;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.io.IOException;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -332,6 +340,7 @@ public class Fund {
     return updated;
   }
 
+  @JsonProperty("updated")
   public void setUpdated(String updated) throws ParseException {
     this.updated = DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
   }

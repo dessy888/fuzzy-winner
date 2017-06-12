@@ -2,6 +2,7 @@ package inc.deszo.fuzzywinner.utils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -12,6 +13,8 @@ public class DateUtils {
 
   public static String STANDARD_FORMAT = "dd/MM/yyyy";
 
+  public static String FT_FORMAT = "yyyy/MM/dd";
+
   public static String getTodayDate(String format) {
 
     LocalDateTime now = LocalDateTime.now();
@@ -20,7 +23,7 @@ public class DateUtils {
     return now.format(formatter);
   }
 
-  public static String getDateFromISODate(String isoDate, String format) {
+  public static String getDateByIsoDate(String isoDate, String format) {
 
     DateTimeFormatter isoDateParser = new DateTimeFormatterBuilder()
         .parseCaseInsensitive()
@@ -112,7 +115,8 @@ public class DateUtils {
     }
   }
 
-  public static boolean isLessThanOrEqualToDate(String firstDate, String secondDate, String format) {
+  public static boolean isLessThanOrEqualToDate(String firstDate, String secondDate,
+                                                String format) {
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
@@ -168,5 +172,19 @@ public class DateUtils {
     SimpleDateFormat formatter = new SimpleDateFormat(format);
 
     return formatter.format(date);
+  }
+
+  public static String getNextWorkingDate(Date date, String format) throws ParseException {
+
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+    String nextDate = DateUtils.getDate(date, format);
+
+    do {
+      nextDate = DateUtils.addDayToDate(nextDate, format, 1);
+
+    } while (LocalDate.parse(nextDate, formatter).getDayOfWeek() == DayOfWeek.SATURDAY ||
+        LocalDate.parse(nextDate, formatter).getDayOfWeek() == DayOfWeek.SUNDAY );
+
+    return nextDate;
   }
 }

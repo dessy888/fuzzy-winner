@@ -90,14 +90,14 @@ public class Application implements CommandLineRunner {
 
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-        setup(false);
+        /*setup(false);
 
         // set updateFundInfo to true very first time repo is populated
         loadFunds(false, true);
 
         updateFundsInfos(true);
 
-        updateFundsHistoryPrices(false);
+        updateFundsHistoryPrices(false);*/
 
         runStatistics();
 
@@ -498,9 +498,9 @@ public class Application implements CommandLineRunner {
         @Bean
         public MongoClientOptions mongoOptions() {
             return MongoClientOptions.builder()
-                    .socketTimeout(2000)
-                    .connectTimeout(2000)
-                    .serverSelectionTimeout(2000).build();
+                    .socketTimeout(30000)
+                    .connectTimeout(30000)
+                    .serverSelectionTimeout(30000).build();
         }
 
     }

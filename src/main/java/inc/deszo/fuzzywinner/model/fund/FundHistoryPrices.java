@@ -16,7 +16,9 @@ import java.util.Date;
 @CompoundIndexes(value =
         {
                 @CompoundIndex(name = "Sedol_isin_ftsymbol_cobdate_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1" +
-                        ", 'cobDate': 1}", unique = true)
+                        ", 'cobDate': 1}", unique = true),
+                @CompoundIndex(name = "Sedol_isin_ftsymbol_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1" +
+                        "}", unique = false)
         }
 )
 public class FundHistoryPrices {

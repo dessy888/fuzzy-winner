@@ -38,6 +38,6 @@ db.fund.aggregate([
 ], 
     {
         allowDiskUse: true,
-        cursor: { batchSize: 10000 }
+        cursor: { batchSize: 1000000 }
     }
 )

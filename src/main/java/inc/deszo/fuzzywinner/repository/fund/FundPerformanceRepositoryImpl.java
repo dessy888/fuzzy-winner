@@ -35,6 +35,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
     public void calculate(boolean plusFundOnly) throws ParseException {
 
         List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
+        int fundCount = 0;
 
         for (FundHistoryPrices fund : fundHistoryPrices) {
 
@@ -45,6 +46,9 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
                     continue;
                 }
             }
+
+            fundCount++;
+            logger.info("Fund {}, Sedol {}.", fundCount, fund.getSedol());
 
             logger.info("Processing Sedol: {} Isin: {} ftSymbol: {}.", fund.getSedol(),
                     fund.getIsin(), fund.getFtSymbol());
@@ -129,6 +133,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
                     fund.getIsin(), fund.getFtSymbol(), lastCobDate);
             }
         }
+        logger.info("*****Number of Fund Performance Calculated: {}", fundCount);
     }
 
     private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String lastCobDate, String dateDiff) throws ParseException {

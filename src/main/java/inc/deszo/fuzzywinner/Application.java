@@ -157,7 +157,7 @@ public class Application implements CommandLineRunner {
             numOfFundCompany++;
         }
 
-        logger.info("Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
+        logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
     }
 
     private void updateFundsInfos(boolean onlyNewOnes) throws ParseException {
@@ -188,7 +188,7 @@ public class Application implements CommandLineRunner {
             }
         }
 
-        logger.info("Number of updated ISIN: {}", numOfISINLoaded);
+        logger.info("*****Number of updated ISIN: {}", numOfISINLoaded);
     }
 
     private boolean updateFundInfos(String sedol) throws ParseException {
@@ -284,7 +284,7 @@ public class Application implements CommandLineRunner {
             logger.info("Download completed for: {}", fundInfo.getSedol());
         }
 
-        logger.info("Fund History Prices download for {} funds.", numOfFundsLoaded);
+        logger.info("*****Fund History Prices download for {} funds.", numOfFundsLoaded);
     }
 
     private int updateFundHistoryPrices(String sedol, String isin, String inceptionDate, String ftSymbol) throws IOException, ParseException {

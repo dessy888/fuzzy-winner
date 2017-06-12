@@ -84,9 +84,9 @@ public class Application implements CommandLineRunner {
         setup(false);
 
         // set updateFundInfo to true very first time repo is populated
-        //loadFunds(false, true);
+        loadFunds(false, true);
 
-        //updateFundsInfos(true);
+        updateFundsInfos(true);
 
         updateFundsHistoryPrices(false);
 
@@ -256,6 +256,7 @@ public class Application implements CommandLineRunner {
     private void updateFundsHistoryPrices(boolean onlyPlusFunds) throws IOException, ParseException {
 
         int numOfFundsLoaded = 0;
+        int fundCount = 0;
 
         List<FundInfos> fundInfos;
 
@@ -266,6 +267,8 @@ public class Application implements CommandLineRunner {
         }
 
         for (FundInfos fundInfo : fundInfos) {
+            fundCount++;
+            logger.info("Fund {}, Sedol {}.", fundCount, fundInfo.getSedol());
 
             if (fundInfo.getInceptionDate() == null) {
                 logger.info("No inception date for Sedol: {} {} {} {} hence skipped!", fundInfo.getSedol(),
@@ -334,7 +337,13 @@ public class Application implements CommandLineRunner {
             JsonNode ftHistoricalPricesAppJnode = mapper.readTree(ftHistoricalPricesAppElementParser);
 
             if (ftSymbol == null) {
-                ftSymbol = ftHistoricalPricesAppJnode.get("symbol").textValue();
+                try {
+                    ftSymbol = ftHistoricalPricesAppJnode.get("symbol").textValue();
+                } catch (NullPointerException npe) {
+                    logger.error("ftSymbol NOT FOUND!");
+                    return 0;
+                }
+
                 if (fundInfosRepository.updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
                     logger.info("FT Symbol for sedol {}: {} updated.", sedol, ftSymbol);
                 }
@@ -440,7 +449,7 @@ public class Application implements CommandLineRunner {
     private void runStatistics() throws ParseException {
 
         //calculate fund performance
-        //fundPerformanceRepository.calculate(true);
+        fundPerformanceRepository.calculate(false);
 
         // all funds with yield more than 5% sort by yield and sedol
         AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);

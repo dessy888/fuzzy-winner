@@ -114,6 +114,7 @@ public class FundApp implements CommandLineRunner {
 
     int numOfFundsUpdated = 0;
     int numOfFundCompany = 0;
+    int fundCount = 1;
 
     //Update fund keys
     //logger.info("Number of funds key updated: {}.", fundRepository.updateKey());
@@ -124,48 +125,76 @@ public class FundApp implements CommandLineRunner {
     Elements optgroups = content.getElementsByTag("optgroup");
     Elements options = optgroups.last().getElementsByTag("option");
 
+    // if by sector
+    //Element content = doc.getElementById("search-sector");
+    //Elements options = content.getElementsByTag("option");
+
     for (Element option : options) {
+
+      if (option.val() == "")
+        continue;
+
       logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
 
+      int page = 1;
+      int totalPages;
       String companyId = option.val();
-      String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
-      logger.debug(result);
 
-      final JsonNode arrNode = JsonUtils.getMAPPER().readTree(result).get("results");
-      if (arrNode.isArray()) {
-        for (final JsonNode objNode : arrNode) {
-          logger.debug("Loading Fund: {}", objNode.toString());
-          Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
-          newFund.setKey();
+      do {
 
-          String sedol = newFund.getSedol();
-          String updated = newFund.getUpdatedLocalDateString();
+        String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=" + page + "&SQ_DESIGN_NAME=json", null, String.class);
+        //String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?sectorid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
+        logger.debug(result);
 
-          Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
-          if (loadedFund == null) {
-            logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
-            fundRepository.save(newFund);
-            numOfFundsUpdated++;
-          } else {
-            logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
-          }
+        //Get results from page
+        final JsonNode arrNodeResults = JsonUtils.getMAPPER().readTree(result).get("results");
+        if (arrNodeResults.isArray()) {
+          for (final JsonNode objNode : arrNodeResults) {
 
-          if (updatePlusFund) {
-            //update plusFund
-            if (fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-              logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
+            logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
+            Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
+            newFund.setKey();
+
+            logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
+
+            String sedol = newFund.getSedol();
+            String updated = newFund.getUpdatedLocalDateString();
+
+            Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+            if (loadedFund == null) {
+              logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
+              fundRepository.save(newFund);
+              numOfFundsUpdated++;
             } else {
-              logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
+              logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
             }
-          }
 
-          if (updateFundInfos) {
-            //update inceptionDate and isin
-            updateFundInfos(sedol);
+            if (updatePlusFund) {
+              //update plusFund
+              if (fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+                logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
+              } else {
+                logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
+              }
+            }
+
+            if (updateFundInfos) {
+              //update inceptionDate and isin
+              updateFundInfos(sedol);
+            }
+            fundCount++;
           }
+          logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
         }
-        logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
-      }
+
+        //Check if there are more pages
+        JsonNode arrNodePages = JsonUtils.getMAPPER().readTree(result).get("pages");
+        totalPages = arrNodePages.asInt();
+
+        page++;
+
+      } while (page <= totalPages);
+
       numOfFundCompany++;
     }
 

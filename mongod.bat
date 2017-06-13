@@ -1,0 +1,2 @@
+mongod.exe --rest
+pause

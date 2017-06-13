@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.mongodb.BasicDBObject;
 import com.mongodb.CommandResult;
+import com.mongodb.WriteResult;
 import inc.deszo.fuzzywinner.model.fund.Fund;
 import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
 import inc.deszo.fuzzywinner.model.fund.FundInfos;
@@ -16,7 +17,11 @@ import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -51,6 +56,9 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
   @Override
   public void calculate(LocalDate cobDate, boolean plusFundOnly) throws ParseException {
+
+    //Update fund keys
+    //logger.info("Number of funds key updated: {}.", fundPerformanceRepository.updateKey());
 
     List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
     int fundCount = 0;
@@ -177,17 +185,20 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         fundPerformance.set_20Y(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, "20Y"));
         fundPerformance.set_ALL(calculatePerformanceBetweenTwoDates(lastCobPrice, lastCobDate, inceptionCobDate));
         fundPerformance.setCobDate(lastCobDate);
+        fundPerformance.setKey();
 
         fundPerformanceRepository.save(fundPerformance);
-        logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!", fund.getSedol(),
-            fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+        logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!",
+            fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
         numOfPerformanceCalculated++;
       }
     }
     logger.info("*****Number of Fund Performance Calculated: {}", numOfPerformanceCalculated);
   }
 
-  private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob, String lastCobDate, String dateDiff) throws ParseException {
+  private double calculatePerformanceBetweenTwoDates(FundHistoryPrices fundLastCob,
+                                                     String lastCobDate, String dateDiff)
+      throws ParseException {
 
     String date;
     String tenor;
@@ -226,7 +237,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
   public void genCsvFundReport() throws IOException {
 
     // performance report
-    String jsFundPerforamnce = MongoUtils.getJSFile("C:/Users/deszo/IdeaProjects/fuzzy-winner/mongodb/queries/Fund-AddBySedolUpdatedLookupFundPerformance.js");
+    String jsFundPerforamnce = MongoUtils.getJSFile("C:/Users/deszo/IdeaProjects/fuzzy-winner/mongodb/queries/Fund-LookupFundPerformance.js");
     BasicDBObject obj = new BasicDBObject();
     obj.append("$eval", jsFundPerforamnce);
 
@@ -238,10 +249,10 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
     if (arrNode.isArray()) {
 
-      List<LinkedHashMap<String, String>> myArrList = new ArrayList<LinkedHashMap<String, String>>();
+      List<LinkedHashMap<String, String>> myArrList = new ArrayList<>();
 
       for (final JsonNode objNode : arrNode) {
-        LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
+        LinkedHashMap<String, String> map;
         map = mapper.readValue(objNode.toString(), new TypeReference<LinkedHashMap<String, String>>() {
         });
         myArrList.add(map);
@@ -259,5 +270,38 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
       logger.info("CSV file generated: {}", pathname);
     }
+  }
+
+  @Override
+  public int updateKey() {
+
+    int numOfRecordsUpdated = 0;
+
+    Query query = new Query();
+    query.with(new Sort(Sort.Direction.DESC, "sedol"));
+    //query.addCriteria(Criteria.where("key").is(null));
+
+    List<FundPerformance> fundPerformances = mongoTemplate.find(query, FundPerformance.class);
+
+    for (FundPerformance fundPerformance : fundPerformances) {
+      fundPerformance.setKey();
+
+      Query fundQuery = new Query();
+      fundQuery.addCriteria(Criteria.where("sedol").is(fundPerformance.getSedol()));
+      fundQuery.addCriteria(Criteria.where("cobDate").is(fundPerformance.getCobDate()));
+
+      Update update = new Update();
+      update.set("key", fundPerformance.getKey());
+
+      WriteResult result = mongoTemplate.updateFirst(fundQuery, update, FundPerformance.class);
+
+      if (result != null) {
+        numOfRecordsUpdated += result.getN();
+      } else {
+        logger.error("Sedol {} key not updated.", fundPerformance.getSedol());
+      }
+    }
+
+    return numOfRecordsUpdated;
   }
 }

@@ -115,6 +115,9 @@ public class FundApp implements CommandLineRunner {
     int numOfFundsUpdated = 0;
     int numOfFundCompany = 0;
 
+    //Update fund keys
+    //logger.info("Number of funds key updated: {}.", fundRepository.updateKey());
+
     //Get list of companyIds
     Document doc = Jsoup.connect("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=218&lo=0&page=1&tab=prices").timeout(0).get();
     Element content = doc.getElementById("search-company");
@@ -133,6 +136,7 @@ public class FundApp implements CommandLineRunner {
         for (final JsonNode objNode : arrNode) {
           logger.debug("Loading Fund: {}", objNode.toString());
           Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
+          newFund.setKey();
 
           String sedol = newFund.getSedol();
           String updated = newFund.getUpdatedLocalDateString();

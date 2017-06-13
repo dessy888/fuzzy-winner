@@ -15,7 +15,7 @@ import java.util.Date;
 @Document(collection = "fundperformance")
 @CompoundIndexes(value =
     {
-        @CompoundIndex(name = "Sedol_isin_ftSymbol_cobDate", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1, 'cobDate': 1}", unique = true)
+        @CompoundIndex(name = "Sedol_isin_ftSymbol_cobDate_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1, 'cobDate': 1}", unique = true)
     }
 )
 public class FundPerformance {
@@ -108,6 +108,9 @@ public class FundPerformance {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
   private Date cobDate;
 
+  @Indexed(unique = true)
+  private String key;
+
   public FundPerformance() {
     super();
   }
@@ -162,6 +165,7 @@ public class FundPerformance {
     this._20Y = _20Y;
     this._ALL = _ALL;
     this.cobDate = cobDate;
+    this.setKey();
   }
 
   public String getSedol() {
@@ -514,5 +518,13 @@ public class FundPerformance {
 
   public void setCobDate(String cobDate) throws ParseException {
     this.cobDate = DateUtils.getDate(cobDate, DateUtils.STANDARD_FORMAT);
+  }
+
+  public String getKey() {
+    return key;
+  }
+
+  public void setKey() {
+    this.key = this.sedol + "-" + this.getCobLocalDateString();
   }
 }

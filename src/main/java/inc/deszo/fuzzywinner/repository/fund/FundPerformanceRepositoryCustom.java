@@ -9,4 +9,6 @@ public interface FundPerformanceRepositoryCustom {
   void calculate(LocalDate cobDate, boolean plusFundOnly) throws ParseException;
 
   void genCsvFundReport() throws IOException;
+
+  int updateKey();
 }

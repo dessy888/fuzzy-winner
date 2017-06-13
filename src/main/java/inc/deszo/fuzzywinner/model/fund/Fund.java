@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -80,6 +81,9 @@ public class Fund {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
   private Date updated;
 
+  @Indexed(unique = true)
+  private String key;
+
   public Fund() {
     super();
   }
@@ -103,7 +107,8 @@ public class Fund {
               String plusFund, double price_sell, double price_buy, double price_change, double yield,
               double initialCharge, double annualCharge, double annualSaving, double netAnnualCharge,
               String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
-              String perf48t60m, double fundSize, String incomeFrequency, String paymentType, int numHoldings, String updated) throws ParseException {
+              String perf48t60m, double fundSize, String incomeFrequency, String paymentType,
+              int numHoldings, String updated) throws ParseException {
     this.sedol = sedol;
     this.name = name;
     this.unitType = unitType;
@@ -130,6 +135,7 @@ public class Fund {
     this.paymentType = paymentType;
     this.numHoldings = numHoldings;
     this.setUpdated(updated);
+    this.setKey();
   }
 
   public String getSedol() {
@@ -343,5 +349,13 @@ public class Fund {
   @JsonProperty("updated")
   public void setUpdated(String updated) throws ParseException {
     this.updated = DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
+  }
+
+  public String getKey() {
+    return key;
+  }
+
+  public void setKey() {
+    this.key = this.sedol + "-" + this.getUpdatedLocalDateString();
   }
 }

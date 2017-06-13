@@ -226,7 +226,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
   public void genCsvFundReport() throws IOException {
 
     // performance report
-    String jsFundPerforamnce = MongoUtils.getJSFile("C:/Users/deszo/IdeaProjects/fuzzy-winner/mongodb/queries/fund - excel performance report.js");
+    String jsFundPerforamnce = MongoUtils.getJSFile("C:/Users/deszo/IdeaProjects/fuzzy-winner/mongodb/queries/Fund-AddBySedolUpdatedLookupFundPerformance.js");
     BasicDBObject obj = new BasicDBObject();
     obj.append("$eval", jsFundPerforamnce);
 

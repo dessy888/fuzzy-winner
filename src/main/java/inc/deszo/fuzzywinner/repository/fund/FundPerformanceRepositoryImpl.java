@@ -23,6 +23,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.text.ParseException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,7 +50,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
   private FundRepository fundRepository;
 
   @Override
-  public void calculate(boolean plusFundOnly) throws ParseException {
+  public void calculate(LocalDate cobDate, boolean plusFundOnly) throws ParseException {
 
     List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
     int fundCount = 0;
@@ -74,7 +75,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
       //get the last cob fund price
       List<FundHistoryPrices> lastFTCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
           fund.getIsin(), fund.getFtSymbol());
-      Double lastFTClosePrice = 0.0;
+      Double lastFTClosePrice;
       String lastFTCobDate = "";
       for (FundHistoryPrices fundLastCob : lastFTCobPrice) {
         lastFTClosePrice = fundLastCob.getPrice_close();
@@ -84,7 +85,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
 
       //get the last updated fund price from HL
       List<Fund> lastHLCobPrice = fundRepository.getLastUpdated(fund.getSedol());
-      Double lastHLClosePrice = 0.0;
+      Double lastHLClosePrice;
       String lastHLCobDate = "";
       for (Fund fundLastCob : lastHLCobPrice) {
         lastHLClosePrice = fundLastCob.getPrice_sell();

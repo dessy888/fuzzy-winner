@@ -46,6 +46,7 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.ParseException;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -95,7 +96,7 @@ public class FundApp implements CommandLineRunner {
 
     updateFundsHistoryPrices(false);
 
-    runStatistics();
+    runStatistics(DateUtils.getLocalDate("12/06/2017", DateUtils.STANDARD_FORMAT));
 
     genFundReports();
   }
@@ -455,10 +456,10 @@ public class FundApp implements CommandLineRunner {
     return (pricesSaved) ? 1 : 0;
   }
 
-  private void runStatistics() throws ParseException {
+  private void runStatistics(LocalDate cobDate) throws ParseException {
 
     //calculate fund performance
-    fundPerformanceRepository.calculate(false);
+    fundPerformanceRepository.calculate(cobDate, false);
 
     // all funds with yield more than 5% sort by yield and sedol
     AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);

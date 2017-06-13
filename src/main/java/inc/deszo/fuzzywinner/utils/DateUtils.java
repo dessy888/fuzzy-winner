@@ -153,18 +153,18 @@ public class DateUtils {
     return LocalDate.parse(date, formatter);
   }
 
+  public static String getLocalDate(LocalDate date, String format) {
+
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+
+    return date.format(formatter);
+  }
+
   public static Date getDate(String date, String format) throws ParseException {
 
     SimpleDateFormat formatter = new SimpleDateFormat(format);
 
     return formatter.parse(date);
-  }
-
-  public static String getDate(LocalDate date, String format) {
-
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
-
-    return date.format(formatter);
   }
 
   public static String getDate(Date date, String format) {

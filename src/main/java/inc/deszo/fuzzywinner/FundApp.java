@@ -308,6 +308,7 @@ public class FundApp implements CommandLineRunner {
     }
 
     for (FundInfos fundInfo : fundInfos) {
+
       fundCount++;
       logger.info("Fund {}, Sedol {}.", fundCount, fundInfo.getSedol());
 

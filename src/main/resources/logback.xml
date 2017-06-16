@@ -26,7 +26,7 @@
         </rollingPolicy>
     </appender>
 
-    <appender name="FILE_TEST" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <appender name="TEST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${DEV_HOME}/log/execution_test.log</file>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
@@ -56,7 +56,7 @@
 
     <logger name="inc.deszo.fuzzywinner.investmenttrust" level="INFO" additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE_TEST" />
+        <appender-ref ref="TEST_FILE" />
     </logger>
 
     <root level="INFO">

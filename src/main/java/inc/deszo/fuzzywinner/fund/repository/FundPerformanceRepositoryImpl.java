@@ -1,4 +1,4 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,10 +7,10 @@ import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.mongodb.BasicDBObject;
 import com.mongodb.CommandResult;
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.model.fund.Fund;
-import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
-import inc.deszo.fuzzywinner.model.fund.FundInfos;
-import inc.deszo.fuzzywinner.model.fund.FundPerformance;
+import inc.deszo.fuzzywinner.fund.model.Fund;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
+import inc.deszo.fuzzywinner.fund.model.FundInfos;
+import inc.deszo.fuzzywinner.fund.model.FundPerformance;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.MathUtils;
 import inc.deszo.fuzzywinner.utils.MongoUtils;

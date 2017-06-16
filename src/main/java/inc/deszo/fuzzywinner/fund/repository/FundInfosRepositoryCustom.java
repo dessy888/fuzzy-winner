@@ -1,4 +1,4 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
 import java.text.ParseException;
 

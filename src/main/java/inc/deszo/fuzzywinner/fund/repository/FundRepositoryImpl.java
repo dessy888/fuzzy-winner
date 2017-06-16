@@ -1,10 +1,7 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.model.fund.Fund;
-import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
-import inc.deszo.fuzzywinner.model.fund.FundInfos;
-import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.fund.model.Fund;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

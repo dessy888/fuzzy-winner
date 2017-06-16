@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.model.fund.Fund;
+import inc.deszo.fuzzywinner.fund.model.Fund;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 
 import java.util.Date;

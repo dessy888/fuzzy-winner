@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.model.fund.FundPerformance;
+import inc.deszo.fuzzywinner.fund.model.FundPerformance;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 

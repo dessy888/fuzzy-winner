@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
 
 import java.text.ParseException;
 import java.util.List;

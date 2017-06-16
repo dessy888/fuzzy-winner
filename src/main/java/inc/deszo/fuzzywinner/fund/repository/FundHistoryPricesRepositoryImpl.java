@@ -1,6 +1,6 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.model.fund.FundHistoryPrices;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;

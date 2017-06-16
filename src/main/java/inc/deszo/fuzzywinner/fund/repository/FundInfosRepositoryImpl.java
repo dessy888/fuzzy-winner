@@ -1,7 +1,7 @@
-package inc.deszo.fuzzywinner.repository.fund;
+package inc.deszo.fuzzywinner.fund.repository;
 
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.model.fund.FundInfos;
+import inc.deszo.fuzzywinner.fund.model.FundInfos;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;

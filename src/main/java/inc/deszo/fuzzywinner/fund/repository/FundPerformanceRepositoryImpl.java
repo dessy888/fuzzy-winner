@@ -12,6 +12,7 @@ import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
 import inc.deszo.fuzzywinner.fund.model.FundInfos;
 import inc.deszo.fuzzywinner.fund.model.FundPerformance;
 import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.utils.JsonUtils;
 import inc.deszo.fuzzywinner.utils.MathUtils;
 import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.slf4j.Logger;
@@ -96,7 +97,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
       Double lastHLClosePrice;
       String lastHLCobDate = "";
       for (Fund fundLastCob : lastHLCobPrice) {
-        lastHLClosePrice = fundLastCob.getPrice_sell();
+        lastHLClosePrice = fundLastCob.getPriceSell();
         lastHLCobDate = fundLastCob.getUpdatedLocalDateString();
         logger.info("Last HL Close Price: {} on {}.", lastHLClosePrice, lastHLCobDate);
       }
@@ -241,7 +242,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
     BasicDBObject obj = new BasicDBObject();
     obj.append("$eval", jsFundPerforamnce);
 
-    ObjectMapper mapper = new ObjectMapper();
+    ObjectMapper mapper = JsonUtils.getMAPPER();
     CsvMapper csvMapper = new CsvMapper();
 
     CommandResult commandResult = mongoTemplate.executeCommand(obj);

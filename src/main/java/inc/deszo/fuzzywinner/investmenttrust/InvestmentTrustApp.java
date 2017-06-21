@@ -1,6 +1,15 @@
 package inc.deszo.fuzzywinner.investmenttrust;
 
 import com.mongodb.MongoClientOptions;
+import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
+import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustRepository;
+import inc.deszo.fuzzywinner.utils.CurrencyUtils;
+import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.utils.MathUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +26,9 @@ import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.PostConstruct;
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.List;
 import java.util.TimeZone;
 
 @SpringBootApplication
@@ -25,6 +37,9 @@ public class InvestmentTrustApp implements CommandLineRunner {
   private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustApp.class);
 
   private RestTemplate restTemplate;
+
+  @Autowired
+  private InvestmentTrustRepository investmentTrustRepository;
 
   @Autowired
   private MongoTemplate mongoTemplate;
@@ -43,7 +58,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-    logger.info("Work in Progress.");
+    loadInvestmentTrusts(false);
   }
 
   private void setup(boolean deleteAll) {
@@ -51,11 +66,13 @@ public class InvestmentTrustApp implements CommandLineRunner {
     }
   }
 
- /* private void loadInvestmentTrusts() throws IOException, ParseException {
+  private void loadInvestmentTrusts(boolean reloadCobData) throws IOException, ParseException {
 
     int numOfInvestmentTrustUpdated = 0;
     int numOfInvestmentTrustCompany = 0;
-    int investmentTrustCound = 1;
+    int investmentTrustCount = 0;
+
+    InvestmentTrust investmentTrust;
 
     //Get list of companyIds
     Document doc = Jsoup.connect("http://www.hl.co.uk/shares/investment-trusts/search-for-investment-trusts?it_search_input=&companyid=150&tab=prices&sectorid=&tab=prices").timeout(0).get();
@@ -64,76 +81,178 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     for (Element option : options) {
 
-      if (option.val() == "")
+      if (option.val() == "") {
         continue;
+      }
 
-      logger.info("Loading Investment Trusts for companyIds: {}, {}", option.val(), option.text());
-
-      int page = 1;
-      int totalPages;
       String companyId = option.val();
+      String companyName = option.text();
 
-      do {
+      logger.info("Loading Investment Trusts for companyIds: {}, {}", companyId, companyName);
 
-        //TODO: Continue here!!!
-        String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=" + page + "&SQ_DESIGN_NAME=json", null, String.class);
-        //String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?sectorid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
-        logger.debug(result);
+      doc = Jsoup.connect("http://www.hl.co.uk/shares/investment-trusts/search-for-investment-trusts?it_search_input=&companyid=" +
+          companyId + "&tab=prices&sectorid=&tab=prices").timeout(0).get();
+      logger.debug(doc.html());
 
-        //Get results from page
-        final JsonNode arrNodeResults = JsonUtils.getMAPPER().readTree(result).get("results");
-        if (arrNodeResults.isArray()) {
-          for (final JsonNode objNode : arrNodeResults) {
+      //get identifier, title & description
+      Elements searchResults = doc.select("table[summary='Investment trust search results']").first().child(1).getElementsByTag("tr");
+      logger.debug(searchResults.html());
 
-            logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
-            Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
-            newFund.setKey();
+      for (Element searchResult : searchResults) {
 
-            logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
+        investmentTrustCount++;
 
-            String sedol = newFund.getSedol();
-            String updated = newFund.getUpdatedLocalDateString();
+        investmentTrust = new InvestmentTrust();
+        Elements rowData = searchResult.select("td");
+        String href = rowData.select("a[href]").first().attr("href");
 
-            Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
-            if (loadedFund == null) {
-              logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
-              fundRepository.save(newFund);
-              numOfFundsUpdated++;
-            } else {
-              logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
+        investmentTrust.setIdentifier(rowData.get(0).text());
+        investmentTrust.setTitle(rowData.get(1).text());
+        investmentTrust.setDescription(rowData.get(2).text());
+        investmentTrust.setCompany(companyName);
+        investmentTrust.setSedol(href.substring(href.lastIndexOf("/") + 1));
+
+        //check if it has already been saved for this CobDate
+        List<InvestmentTrust> savedInvestmentTrust = investmentTrustRepository.getLastUpdated(investmentTrust.getSedol());
+        if (savedInvestmentTrust.size() > 0) {
+          if (savedInvestmentTrust.get(0).getUpdatedLocalDateString().equalsIgnoreCase(DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT))) {
+            if (!reloadCobData) {
+              logger.info("Skip Loading {}: {}, {}, {}, {}.", investmentTrustCount, investmentTrust.getIdentifier(),
+                  investmentTrust.getTitle(), investmentTrust.getDescription(), investmentTrust.getSedol());
+              continue;
             }
-
-            if (updatePlusFund) {
-              //update plusFund
-              if (fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-                logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
-              } else {
-                logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
-              }
-            }
-
-            if (updateFundInfos) {
-              //update inceptionDate and isin
-              updateFundInfos(sedol);
-            }
-            fundCount++;
           }
-          logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
         }
 
-        //Check if there are more pages
-        JsonNode arrNodePages = JsonUtils.getMAPPER().readTree(result).get("pages");
-        totalPages = arrNodePages.asInt();
+        // now get more detail data for each investment trust
+        // http://www.hl.co.uk/shares/shares-search-results/XXXXX
+        doc = Jsoup.connect("http://www.hl.co.uk/shares/shares-search-results/"
+            + investmentTrust.getSedol()).timeout(0).get();
 
-        page++;
+        if(!doc.select("h1:contains(Market data not available)").isEmpty()) {
+          logger.info("No Marktet data for {}: {}, {}, {}, {}.", investmentTrustCount, investmentTrust.getIdentifier(),
+              investmentTrust.getTitle(), investmentTrust.getDescription(), investmentTrust.getSedol());
+        } else {
+          investmentTrust.setIsin(doc.select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(ISIN)").get(0).parent().child(1).text());
 
-      } while (page <= totalPages);
+          logger.info("Loading {}: {}, {}, {}, {}, {}.", investmentTrustCount, investmentTrust.getIdentifier(),
+              investmentTrust.getTitle(), investmentTrust.getDescription(), investmentTrust.getSedol(),
+              investmentTrust.getIsin());
 
-      numOfFundCompany++;
+        /*
+        String priceChange = "";
+        if (doc.select("span[class='change-divide'] span[class='nochange change']").size() > 0) {
+          priceChange = "0";
+        } else if (doc.select("span[class='change-divide'] span[class='negative change']").size() > 0) {
+          priceChange = "-" + doc.select("span[class='change-divide'] span[class='negative change']").get(0).text();
+        } else if (doc.select("span[class='change-divide'] span[class='positive change']").size() > 0) {
+          priceChange = "-" + doc.select("span[class='change-divide'] span[class='positive change']").get(0).text();
+        }*/
+
+          Elements securityDetails = doc.select("div[id='security-detail'] div[class='row'] div[class='columns large-3 medium-4 small-6']");
+          logger.debug(securityDetails.html());
+
+          investmentTrust.setCurrency(securityDetails.select("span:contains(Currency)").first().parent().child(2).text());
+
+          investmentTrust.setEstimatedNav(MathUtils.convert(securityDetails.select("span:contains(Estimated Nav)")
+              .first().parent().child(2).text()));
+
+          investmentTrust.setPremiumDiscount(MathUtils.convert(securityDetails.select("span:contains(Premium/Discount)")
+              .first().parent().child(2).text()));
+
+          investmentTrust.setPriceBuy(CurrencyUtils.getAmount(doc.select("span[class='ask price-divide']").get(0).text(),
+              investmentTrust.getCurrency()));
+
+          investmentTrust.setPriceSell(CurrencyUtils.getAmount(doc.select("span[class='bid price-divide']").get(0).text(),
+              investmentTrust.getCurrency()));
+
+          String priceChange;
+          if (securityDetails.select("span:contains(Previous)").last().parent().child(2).attr("class")
+              .equalsIgnoreCase("negative change")) {
+            priceChange = "-" + securityDetails.select("span:contains(Previous)").last().parent().child(2).text();
+          } else {
+            priceChange = "-" + securityDetails.select("span:contains(Previous)").last().parent().child(2).text();
+          }
+          investmentTrust.setPriceChange(CurrencyUtils.getAmount(priceChange, investmentTrust.getCurrency()));
+
+          investmentTrust.setDividendYield(MathUtils.convert(securityDetails
+              .select("span:contains(Dividend yield)").first().parent().child(2).text()));
+
+          investmentTrust.setLatestActualNav(MathUtils.convert(doc
+              .select("span:contains(Latest actual NAV)").get(0).parent().parent()
+              .siblingElements().text()));
+
+          investmentTrust.setLatestActualNavDate(doc
+              .select("span:contains(Latest actual NAV date)").get(0).parent().parent()
+              .siblingElements().text());
+
+          investmentTrust.set_12mAvgPremiumDiscount(MathUtils.convert(doc
+              .select("span:contains(12m average Premium/Discount)").get(0).parent().parent()
+              .siblingElements().text()));
+
+          investmentTrust.setNavFrequency(doc
+              .select("span:contains(NAV frequency)").get(0).parent().parent()
+              .siblingElements().text());
+
+          investmentTrust.setPerformanceFee(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Performance fee)")
+              .get(0).parent().child(1).text());
+
+          investmentTrust.setOngoingCharge(MathUtils.convert(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Ongoing charge)")
+              .get(0).parent().child(1).text()));
+
+          investmentTrust.setDividendFrequency(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Dividend frequency)")
+              .get(0).parent().child(1).text());
+
+          investmentTrust.setTotalAssets(MathUtils.convert(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Total assets)")
+              .get(0).parent().child(1).text()));
+
+          investmentTrust.setGrossGearing(MathUtils.convert(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Gross gearing)")
+              .get(0).parent().child(1).text()));
+
+          investmentTrust.setMarketCap(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Market capitalisation)")
+              .get(0).parent().child(1).text());
+
+          investmentTrust.setSharesInIssue(doc
+              .select("table[class='factsheet-table table-no-border spacer-bottom'] th:contains(Shares in issue)")
+              .get(0).parent().child(1).text());
+
+          investmentTrust.setLaunchDate(doc
+              .select("th:contains(Launch date:)").get(0).parent().child(1).text());
+
+          if (doc.select("span[class='stream_msg_closed dNone']").hasText()) {
+            String msgClosedText = doc.select("span[class='stream_msg_closed dNone']").first().text();
+            investmentTrust.setUpdated(msgClosedText.substring(msgClosedText.indexOf("on") + 3));
+          } else {
+            investmentTrust.setUpdated(DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+          }
+
+          investmentTrust.setUrl();
+          investmentTrust.setKey();
+
+          if (investmentTrustRepository.findInvestmentTrustByKey(investmentTrust.getKey()) == null) {
+            investmentTrustRepository.save(investmentTrust);
+            logger.info("Saving Investment Trust: {}", investmentTrust.toString());
+          } else {
+            investmentTrustRepository.updateInvestmentTrust(investmentTrust);
+            logger.info("Updating Investment Trust: {}", investmentTrust.toString());
+          }
+
+          numOfInvestmentTrustUpdated++;
+        }
+      }
+
+      numOfInvestmentTrustCompany++;
     }
 
-    logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
-  }*/
+    logger.info("*****Number of Investment Trust Companies Loaded: {}, Number of Funds Updated: {}",
+        numOfInvestmentTrustCompany, numOfInvestmentTrustUpdated);
+  }
 
   @Bean
   public MongoTemplate mongoTemplate(MongoDbFactory mongoDbFactory,

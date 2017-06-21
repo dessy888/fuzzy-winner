@@ -8,7 +8,7 @@ db.fund.aggregate([
     { $unwind: "$perf" },
     { $project: { _id:0, sedol: 1, 'isin': '$perf.isin', 'ftSymbol': '$perf.isin', name: 1, unitType: 1, loaded: 1, company: 1, sector: 1, plusFund: 1, price_sell: 1, price_buy: 1, 
         price_change: 1, yield: 1, initialCharge: 1, annualCharge: 1, annualSaving: 1, netAnnualCharge: 1,  
-        fundSize: 1, incomeFrequency: 1, paymentType: 1, numHoldings: 1,  
+        fundSize: 1, incomeFrequency: 1, paymentType: 1, numHoldings: 1, url: 1,
         'reportName': '$perf.reportName', '1D': '$perf._1D', '3D': '$perf._3D',
         '5D': '$perf._5D', '1W': '$perf._1W', '2W': '$perf._2W', '3W': '$perf._3W', '1M': '$perf._1M', '2M': '$perf._2M',
         '3M': '$perf._3M', '4M': '$perf._4M', '5M': '$perf._5M', '6M': '$perf._6M', '7M': '$perf._7M', '8M': '$perf._8M',

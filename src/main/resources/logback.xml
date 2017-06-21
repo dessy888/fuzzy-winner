@@ -26,8 +26,8 @@
         </rollingPolicy>
     </appender>
 
-    <appender name="TEST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${DEV_HOME}/log/execution_test.log</file>
+    <appender name="FUND_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${DEV_HOME}/log/execution-fund.log</file>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
@@ -35,7 +35,24 @@
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>${DEV_HOME}/log/execution_test.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${DEV_HOME}/log/execution-fund.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>25MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="INVESTMENTTRUST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${DEV_HOME}/log/execution-investmenttrust.log</file>
+        <append>true</append>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>${DEV_HOME}/log/execution-investmenttrust.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
             <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
                 <maxFileSize>25MB</maxFileSize>
@@ -51,12 +68,12 @@
 
     <logger name="inc.deszo.fuzzywinner.fund" level="INFO" additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
+        <appender-ref ref="FUND_FILE" />
     </logger>
 
     <logger name="inc.deszo.fuzzywinner.investmenttrust" level="INFO" additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="TEST_FILE" />
+        <appender-ref ref="INVESTMENTTRUST_FILE" />
     </logger>
 
     <root level="INFO">

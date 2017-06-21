@@ -498,12 +498,12 @@ public class FundApp implements CommandLineRunner {
     // all funds with yield more than 5% sort by yield and sedol
     AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);
     fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-        fund.getFundSize(), fund.getPrice_sell(), fund.getUpdatedLocalDateString(), fund.getYield()));
+        fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
     // all plus funds with yield more than 4% sort by yield and sedol
     AggregationResults<Fund> plusFundResults = fundRepository.getPlusFundWithYieldMoreThan(4.0);
     plusFundResults.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
-        fund.getFundSize(), fund.getPrice_sell(), fund.getUpdatedLocalDateString(), fund.getYield()));
+        fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
     // all updated dates
     List<Date> updatedDates = fundRepository.getDistinctUpdated();

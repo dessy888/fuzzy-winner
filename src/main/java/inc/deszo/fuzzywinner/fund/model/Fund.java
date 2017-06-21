@@ -35,11 +35,11 @@ public class Fund {
 
   private String plusFund;
 
-  private double price_sell;
+  private double priceSell;
 
-  private double price_buy;
+  private double priceBuy;
 
-  private double price_change;
+  private double priceChange;
 
   private double yield;
 
@@ -71,6 +71,8 @@ public class Fund {
 
   private int numHoldings;
 
+  private String url;
+
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
   private Date updated;
 
@@ -82,14 +84,14 @@ public class Fund {
   }
 
   public Fund(String sedol, String name, String unitType, String loaded, String company, String sector,
-              String plusFund, String price_sell, String price_buy, String price_change, String yield,
+              String plusFund, String priceSell, String priceBuy, String priceChange, String yield,
               String initialCharge, String annualCharge, String annualSaving, String netAnnualCharge,
               String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
               String perf48t60m, String fundSize, String incomeFrequency, String paymentType, String numHoldings,
               String updated) throws ParseException {
 
-    this(sedol, name, unitType, loaded, company, sector, plusFund, Double.valueOf(price_sell),
-        Double.valueOf(price_buy), Double.valueOf(price_change), Double.valueOf(yield), Double.valueOf(initialCharge),
+    this(sedol, name, unitType, loaded, company, sector, plusFund, Double.valueOf(priceSell),
+        Double.valueOf(priceBuy), Double.valueOf(priceChange), Double.valueOf(yield), Double.valueOf(initialCharge),
         Double.valueOf(annualCharge), Double.valueOf(annualSaving), Double.valueOf(netAnnualCharge),
         discountedCode, perf12m, perf12t24m, perf24t36m, perf36t48m, perf48t60m, Double.valueOf(fundSize),
         incomeFrequency, paymentType, Integer.valueOf(numHoldings), updated);
@@ -97,7 +99,7 @@ public class Fund {
   }
 
   public Fund(String sedol, String name, String unitType, String loaded, String company, String sector,
-              String plusFund, double price_sell, double price_buy, double price_change, double yield,
+              String plusFund, double priceSell, double priceBuy, double priceChange, double yield,
               double initialCharge, double annualCharge, double annualSaving, double netAnnualCharge,
               String discountedCode, String perf12m, String perf12t24m, String perf24t36m, String perf36t48m,
               String perf48t60m, double fundSize, String incomeFrequency, String paymentType,
@@ -109,9 +111,9 @@ public class Fund {
     this.company = company;
     this.sector = sector;
     this.plusFund = plusFund;
-    this.price_sell = price_sell;
-    this.price_buy = price_buy;
-    this.price_change = price_change;
+    this.priceSell = priceSell;
+    this.priceBuy = priceBuy;
+    this.priceChange = priceChange;
     this.yield = yield;
     this.initialCharge = initialCharge;
     this.annualCharge = annualCharge;
@@ -127,6 +129,7 @@ public class Fund {
     this.incomeFrequency = incomeFrequency;
     this.paymentType = paymentType;
     this.numHoldings = numHoldings;
+    this.setUrl();
     this.setUpdated(updated);
     this.setKey();
   }
@@ -187,28 +190,31 @@ public class Fund {
     this.plusFund = plusFund;
   }
 
-  public double getPrice_sell() {
-    return price_sell;
+  public double getPriceSell() {
+    return priceSell;
   }
 
-  public void setPrice_sell(double price_sell) {
-    this.price_sell = price_sell;
+  @JsonProperty("price_sell")
+  public void setPriceSell(double priceSell) {
+    this.priceSell = priceSell;
   }
 
-  public double getPrice_buy() {
-    return price_buy;
+  public double getPriceBuy() {
+    return priceBuy;
   }
 
-  public void setPrice_buy(double price_buy) {
-    this.price_buy = price_buy;
+  @JsonProperty("price_buy")
+  public void setPriceBuy(double priceBuy) {
+    this.priceBuy = priceBuy;
   }
 
-  public double getPrice_change() {
-    return price_change;
+  public double getPriceChange() {
+    return priceChange;
   }
 
-  public void setPrice_change(double price_change) {
-    this.price_change = price_change;
+  @JsonProperty("price_change")
+  public void setPriceChange(double pricChange) {
+    this.priceChange = priceChange;
   }
 
   public double getYield() {
@@ -329,6 +335,15 @@ public class Fund {
 
   public void setNumHoldings(int numHoldings) {
     this.numHoldings = numHoldings;
+  }
+
+  public String getUrl() {
+    return url;
+  }
+
+  public void setUrl() {
+    this.url = "http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results/"
+        + this.sedol;
   }
 
   public String getUpdatedLocalDateString() {

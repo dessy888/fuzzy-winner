@@ -1,6 +1,7 @@
 package inc.deszo.fuzzywinner.fund.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
@@ -29,80 +30,118 @@ public class FundPerformance {
 
   private String reportName;
 
+  @JsonProperty("1D")
   private double _1D;
 
+  @JsonProperty("3D")
   private double _3D;
 
+  @JsonProperty("5D")
   private double _5D;
 
+  @JsonProperty("1W")
   private double _1W;
 
+  @JsonProperty("2W")
   private double _2W;
 
+  @JsonProperty("3W")
   private double _3W;
 
+  @JsonProperty("1M")
   private double _1M;
 
+  @JsonProperty("2M")
   private double _2M;
 
+  @JsonProperty("3M")
   private double _3M;
 
+  @JsonProperty("4M")
   private double _4M;
 
+  @JsonProperty("5M")
   private double _5M;
 
+  @JsonProperty("6M")
   private double _6M;
 
+  @JsonProperty("7M")
   private double _7M;
 
+  @JsonProperty("8M")
   private double _8M;
 
+  @JsonProperty("9M")
   private double _9M;
 
+  @JsonProperty("10M")
   private double _10M;
 
+  @JsonProperty("11M")
   private double _11M;
 
+  @JsonProperty("1Y")
   private double _1Y;
 
+  @JsonProperty("2Y")
   private double _2Y;
 
+  @JsonProperty("3Y")
   private double _3Y;
 
+  @JsonProperty("4Y")
   private double _4Y;
 
+  @JsonProperty("5Y")
   private double _5Y;
 
+  @JsonProperty("6Y")
   private double _6Y;
 
+  @JsonProperty("7Y")
   private double _7Y;
 
+  @JsonProperty("8Y")
   private double _8Y;
 
+  @JsonProperty("9Y")
   private double _9Y;
 
+  @JsonProperty("10Y")
   private double _10Y;
 
+  @JsonProperty("11Y")
   private double _11Y;
 
+  @JsonProperty("12Y")
   private double _12Y;
 
+  @JsonProperty("13Y")
   private double _13Y;
 
+  @JsonProperty("14Y")
   private double _14Y;
 
+  @JsonProperty("15Y")
   private double _15Y;
 
+  @JsonProperty("16Y")
   private double _16Y;
 
+  @JsonProperty("17Y")
   private double _17Y;
 
+  @JsonProperty("18Y")
   private double _18Y;
 
+  @JsonProperty("19Y")
   private double _19Y;
 
+  @JsonProperty("20Y")
   private double _20Y;
 
+  @JsonProperty("ALL")
   private double _ALL;
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)

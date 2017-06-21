@@ -1,0 +1,1 @@
+db.fund.find( { sedol: { $eq : 'BD3FVS7' } } )

@@ -15,6 +15,8 @@ public class DateUtils {
 
   public static String FT_FORMAT = "yyyy/MM/dd";
 
+  public static String HL_FORMAT = "dd MMM yyyy";
+
   public static String getTodayDate(String format) {
 
     LocalDateTime now = LocalDateTime.now();

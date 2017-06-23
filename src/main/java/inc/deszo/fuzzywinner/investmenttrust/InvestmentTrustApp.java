@@ -84,7 +84,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
     Element content = doc.getElementById("companyid");
     Elements options = content.getElementsByTag("option");
 
-    ExecutorService executor = Executors.newFixedThreadPool(5);
+    ExecutorService executor = Executors.newFixedThreadPool(10);
 
     for (Element option : options) {
 

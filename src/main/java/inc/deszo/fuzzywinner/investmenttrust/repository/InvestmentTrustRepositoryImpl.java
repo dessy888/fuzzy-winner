@@ -1,10 +1,18 @@
 package inc.deszo.fuzzywinner.investmenttrust.repository;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.mongodb.BasicDBObject;
+import com.mongodb.CommandResult;
 import com.mongodb.WriteResult;
 import inc.deszo.fuzzywinner.fund.model.Fund;
 import inc.deszo.fuzzywinner.fund.model.FundInfos;
 import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
 import inc.deszo.fuzzywinner.utils.DateUtils;
+import inc.deszo.fuzzywinner.utils.JsonUtils;
+import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,9 +24,16 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 
+import static inc.deszo.fuzzywinner.utils.CsvUtils.csvWriter;
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
 public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryCustom {
@@ -27,6 +42,9 @@ public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryC
 
   @Autowired
   private MongoTemplate mongoTemplate;
+
+  @Autowired
+  private InvestmentTrustRepository investmentTrustRepository;
 
   @Override
   public int updateInvestmentTrust(InvestmentTrust investmentTrust) {
@@ -78,5 +96,39 @@ public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryC
 
     return mongoTemplate.find(query, InvestmentTrust.class);
   }
+
+  @Override
+  public void genCsvInvestmentReport() throws IOException {
+
+    ObjectMapper mapper = JsonUtils.getMAPPER();
+    CsvMapper csvMapper = new CsvMapper();
+
+    List<InvestmentTrust> investmentTrusts = investmentTrustRepository.findAll();
+    List<LinkedHashMap<String, String>> myArrList = new ArrayList<>();
+
+    for (InvestmentTrust investmentTrust:investmentTrusts) {
+
+      String json = mapper.writeValueAsString(investmentTrust);
+      JsonNode jsonNode = mapper.readTree(json);
+
+      LinkedHashMap<String, String> map;
+      map = mapper.readValue(jsonNode.toString(), new TypeReference<LinkedHashMap<String, String>>() {
+        });
+        myArrList.add(map);
+    }
+
+    String pathname = "C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvInvestmentReport_" +
+      DateUtils.getTodayDate("MM_dd_yyyy") + ".csv";
+    File file = new File(pathname);
+
+    // Create a File and append if it already exists.
+    Writer writer = new FileWriter(file, false);
+
+    //Copy List of Map Object into CSV format at specified File location.
+    csvWriter(myArrList, writer);
+
+    logger.info("CSV file generated: {}", pathname);
+  }
+
 }
 

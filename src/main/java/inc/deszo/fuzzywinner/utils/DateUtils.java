@@ -11,11 +11,11 @@ import java.util.Date;
 
 public class DateUtils {
 
-  public static String STANDARD_FORMAT = "dd/MM/yyyy";
+  public static final String STANDARD_FORMAT = "dd/MM/yyyy";
 
-  public static String FT_FORMAT = "yyyy/MM/dd";
+  public static final String FT_FORMAT = "yyyy/MM/dd";
 
-  public static String HL_FORMAT = "dd MMM yyyy";
+  public static final String HL_FORMAT = "dd MMM yyyy";
 
   public static String getTodayDate(String format) {
 

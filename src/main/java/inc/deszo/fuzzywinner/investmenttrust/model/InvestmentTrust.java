@@ -1,5 +1,6 @@
 package inc.deszo.fuzzywinner.investmenttrust.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import inc.deszo.fuzzywinner.utils.DateUtils;
@@ -7,9 +8,12 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.text.ParseException;
 import java.util.Date;
+
+import static inc.deszo.fuzzywinner.utils.DateUtils.getDate;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Document(collection = "investmenttrust")
@@ -58,6 +62,9 @@ public class InvestmentTrust {
 
   private double latestActualNav;
 
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+  @JsonFormat
+      (shape = JsonFormat.Shape.STRING, pattern = DateUtils.STANDARD_FORMAT)
   private Date latestActualNavDate;
 
   private double _12mAvgPremiumDiscount;
@@ -68,10 +75,16 @@ public class InvestmentTrust {
 
   private double ongoingCharge;
 
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+  @JsonFormat
+      (shape = JsonFormat.Shape.STRING, pattern = DateUtils.STANDARD_FORMAT)
   private Date launchDate;
 
   private String url;
 
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+  @JsonFormat
+      (shape = JsonFormat.Shape.STRING, pattern = DateUtils.STANDARD_FORMAT)
   private Date updated;
 
   @Indexed(unique = true)
@@ -272,7 +285,7 @@ public class InvestmentTrust {
   }
 
   public String getLatestActualNavDateLocalDateString() {
-    return DateUtils.getDate(latestActualNavDate, DateUtils.STANDARD_FORMAT);
+    return getDate(latestActualNavDate, DateUtils.STANDARD_FORMAT);
   }
 
   public Date getLatestActualNavDate() {
@@ -282,7 +295,7 @@ public class InvestmentTrust {
   @JsonProperty("latestActualNavDate")
   public void setLatestActualNavDate(String latestActualNavDate) throws ParseException {
     if (!latestActualNavDate.equalsIgnoreCase("n/a")) {
-      this.latestActualNavDate = DateUtils.getDate(latestActualNavDate, DateUtils.HL_FORMAT);
+      this.latestActualNavDate = getDate(latestActualNavDate, DateUtils.HL_FORMAT);
     }
   }
 
@@ -319,7 +332,7 @@ public class InvestmentTrust {
   }
 
   public String getLaunchDateLocalDateString() {
-    return DateUtils.getDate(launchDate, DateUtils.STANDARD_FORMAT);
+    return getDate(launchDate, DateUtils.STANDARD_FORMAT);
   }
 
   public Date getLaunchDate() {
@@ -329,7 +342,7 @@ public class InvestmentTrust {
   @JsonProperty("launchDate")
   public void setLaunchDate(String launchDate) throws ParseException {
     if (!launchDate.equalsIgnoreCase("n/a")) {
-      this.launchDate = DateUtils.getDate(launchDate, DateUtils.HL_FORMAT);
+      this.launchDate = getDate(launchDate, DateUtils.HL_FORMAT);
     }
   }
 
@@ -343,7 +356,7 @@ public class InvestmentTrust {
   }
 
   public String getUpdatedLocalDateString() {
-    return DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
+    return getDate(updated, DateUtils.STANDARD_FORMAT);
   }
 
   public Date getUpdated() {
@@ -352,7 +365,7 @@ public class InvestmentTrust {
 
   @JsonProperty("updated")
   public void setUpdated(String updated) throws ParseException {
-    this.updated = DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT);
+    this.updated = getDate(updated, DateUtils.STANDARD_FORMAT);
   }
 
   public String getKey() {

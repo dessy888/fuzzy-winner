@@ -259,7 +259,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         myArrList.add(map);
       }
 
-      String pathname = "C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvFundReport_" +
+      String pathname = "C:/Users/deszo/IdeaProjects/fuzzy-winner/reports/csvFundReport-" +
           DateUtils.getTodayDate("MM_dd_yyyy") + ".csv";
       File file = new File(pathname);
 

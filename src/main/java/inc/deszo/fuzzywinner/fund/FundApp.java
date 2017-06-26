@@ -262,7 +262,8 @@ public class FundApp implements CommandLineRunner {
 
       logger.debug("Key Features: {}", keyFeaturesDoc.html());
 
-      Element isinElement = keyFeaturesDoc.select("th[class='align-left']:contains(ISIN code:)").first().parent().child(1);
+      Element isinElement = keyFeaturesDoc
+          .select("th[class='align-left']:contains(ISIN code:)").first().parent().child(1);
       String isin = isinElement.text().trim();
 
       if (isin.isEmpty()) {
@@ -270,8 +271,8 @@ public class FundApp implements CommandLineRunner {
       } else {
         logger.debug("ISIN: {} for SEDOL {} found.", isin, sedol);
 
-        FundMapping newFundMapping = new FundMapping(sedol, isin, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT),
-            Type.FUND);
+        FundMapping newFundMapping = new FundMapping(sedol, isin,
+            DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
 
         // check if fundInfo exist?
         FundMapping loadedFundMapping = fundMappingsRepository.findISIN(sedol, isin);

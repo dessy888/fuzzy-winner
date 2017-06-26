@@ -14,7 +14,7 @@ import java.text.ParseException;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(collection = "fundmappings")
+@Document(collection = "mappings")
 @CompoundIndexes(value =
     {
         @CompoundIndex(name = "Sedol_isin_ind1", def = "{'sedol': 1, 'isin': 1}", unique = true),
@@ -29,13 +29,13 @@ public class FundMapping extends Mapping {
     super();
   }
 
-  public FundMapping(String sedol, String isin, String updated, Type type) throws ParseException {
-    super(sedol, isin, updated, type);
+  public FundMapping(String sedol, String isin, String updated) throws ParseException {
+    super(sedol, isin, updated, Type.FUND);
   }
 
   public FundMapping(String sedol, String isin, String ftSymbol, String inceptionDate,
-                     String plusFund, String updated, Type type) throws ParseException {
-    super(sedol, isin, ftSymbol, inceptionDate, updated, type);
+                     String plusFund, String updated) throws ParseException {
+    super(sedol, isin, ftSymbol, inceptionDate, updated, Type.FUND);
     this.plusFund = plusFund;
   }
 

@@ -1,4 +1,4 @@
-db.fundhistoryprices.aggregate([
+db.historyprices.aggregate([
     { $group: { 
         _id: {"sedol":"$sedol", "isin":"$isin", "ftSymbol":"$ftSymbol"},
         count: { $sum: 1 }

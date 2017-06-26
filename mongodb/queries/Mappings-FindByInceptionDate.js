@@ -1,0 +1,1 @@
+db.mappings.find( { inceptionDate: { $eq : null } } )

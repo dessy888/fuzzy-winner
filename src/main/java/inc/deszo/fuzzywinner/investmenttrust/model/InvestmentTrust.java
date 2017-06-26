@@ -16,7 +16,7 @@ import java.util.Date;
 import static inc.deszo.fuzzywinner.utils.DateUtils.getDate;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(collection = "investmenttrust")
+@Document(collection = "investmenttrusts")
 @CompoundIndexes(value =
     {
         @CompoundIndex(name = "Sedol_updated_ind1", def = "{'sedol': 1, 'updated': 1}", unique = true)
@@ -365,7 +365,7 @@ public class InvestmentTrust {
 
   @JsonProperty("updated")
   public void setUpdated(String updated) throws ParseException {
-    this.updated = getDate(updated, DateUtils.STANDARD_FORMAT);
+    this.updated = getDate(updated, DateUtils.HL_FORMAT);
   }
 
   public String getKey() {

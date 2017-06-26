@@ -1,4 +1,4 @@
-db.fund.aggregate([
+db.funds.aggregate([
     { $sort: { sedol: 1, updated: 1 } },
     { $group: { 
         _id: "$sedol",

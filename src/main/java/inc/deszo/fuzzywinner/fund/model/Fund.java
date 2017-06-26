@@ -13,7 +13,7 @@ import java.text.ParseException;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(collection = "fund")
+@Document(collection = "funds")
 @CompoundIndexes(value =
     {
         @CompoundIndex(name = "Sedol_updated_ind1", def = "{'sedol': 1, 'updated': 1}", unique = true)
@@ -35,6 +35,7 @@ public class Fund {
 
   private String plusFund;
 
+  @JsonProperty("price_sell")
   private double priceSell;
 
   private double priceBuy;
@@ -194,7 +195,6 @@ public class Fund {
     return priceSell;
   }
 
-  @JsonProperty("price_sell")
   public void setPriceSell(double priceSell) {
     this.priceSell = priceSell;
   }
@@ -213,7 +213,7 @@ public class Fund {
   }
 
   @JsonProperty("price_change")
-  public void setPriceChange(double pricChange) {
+  public void setPriceChange(double priceChange) {
     this.priceChange = priceChange;
   }
 

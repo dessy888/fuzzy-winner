@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--suppress ALL -->
 <configuration>
 
-    <property name="DEV_HOME" value="c:/Users/deszo/IdeaProjects/fuzzy-winner" />
+    <property name="DEV_HOME" value="log" />
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -10,53 +11,53 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${DEV_HOME}/log/execution.log</file>
+        <file>${DEV_HOME}/execution.log</file>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
         </encoder>
 
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>${DEV_HOME}/log/execution.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${DEV_HOME}/execution.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>25MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>20GB</totalSizeCap>
         </rollingPolicy>
     </appender>
 
     <appender name="FUND_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${DEV_HOME}/log/execution-fund.log</file>
+        <file>${DEV_HOME}/execution-fund.log</file>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
         </encoder>
 
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>${DEV_HOME}/log/execution-fund.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${DEV_HOME}/execution-fund.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>25MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>20GB</totalSizeCap>
         </rollingPolicy>
     </appender>
 
     <appender name="INVESTMENTTRUST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${DEV_HOME}/log/execution-investmenttrust.log</file>
+        <file>${DEV_HOME}/execution-investmenttrust.log</file>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <Pattern>%date [%thread] %-5level %logger{36} - %message%n</Pattern>
         </encoder>
 
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>${DEV_HOME}/log/execution-investmenttrust.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${DEV_HOME}/execution-investmenttrust.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>25MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>20GB</totalSizeCap>
         </rollingPolicy>
     </appender>
 

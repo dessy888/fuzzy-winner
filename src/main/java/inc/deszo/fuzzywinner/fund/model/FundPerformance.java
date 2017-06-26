@@ -13,7 +13,7 @@ import java.text.ParseException;
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(collection = "fundperformance")
+@Document(collection = "fundperformances")
 @CompoundIndexes(value =
     {
         @CompoundIndex(name = "Sedol_isin_ftSymbol_cobDate_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1, 'cobDate': 1}", unique = true)

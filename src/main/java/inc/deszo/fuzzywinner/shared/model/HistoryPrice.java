@@ -1,27 +1,13 @@
-package inc.deszo.fuzzywinner.fund.model;
+package inc.deszo.fuzzywinner.shared.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import inc.deszo.fuzzywinner.utils.DateUtils;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.text.ParseException;
 import java.util.Date;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-@Document(collection = "fundhistoryprices")
-@CompoundIndexes(value =
-    {
-        @CompoundIndex(name = "Sedol_isin_ftsymbol_cobdate_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1" +
-            ", 'cobDate': 1}", unique = true),
-        @CompoundIndex(name = "Sedol_isin_ftsymbol_ind1", def = "{'sedol': 1, 'isin': 1, 'ftSymbol': 1" +
-            "}", unique = false)
-    }
-)
-public class FundHistoryPrices {
+public abstract class HistoryPrice {
 
   @Indexed
   private String sedol;
@@ -32,21 +18,22 @@ public class FundHistoryPrices {
   @Indexed
   private String ftSymbol;
 
-  private double price_close;
+  private Type type;
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
   private Date cobDate;
 
-  public FundHistoryPrices() {
+  public HistoryPrice() {
     super();
   }
 
-  public FundHistoryPrices(String sedol, String isin, String ftSymbol, double price_close, String cobDate) throws ParseException {
+  public HistoryPrice(String sedol, String isin, String ftSymbol, String cobDate,
+                      Type type) throws ParseException {
     this.sedol = sedol;
     this.isin = isin;
     this.ftSymbol = ftSymbol;
-    this.price_close = price_close;
     this.setCobDate(cobDate);
+    this.type = type;
   }
 
   public String getSedol() {
@@ -73,12 +60,12 @@ public class FundHistoryPrices {
     this.ftSymbol = ftSymbol;
   }
 
-  public double getPrice_close() {
-    return price_close;
+  public Type getType() {
+    return type;
   }
 
-  public void setPrice_close(double price_close) {
-    this.price_close = price_close;
+  public void setType(Type type) {
+    this.type = type;
   }
 
   public String getCobLocalDateString() {

@@ -2,7 +2,7 @@ package inc.deszo.fuzzywinner.fund.repository;
 
 import java.text.ParseException;
 
-public interface FundInfosRepositoryCustom {
+public interface FundMappingsRepositoryCustom {
 
   int updateInceptionDate(String sedol, String inceptionDate, String updated) throws ParseException;
 

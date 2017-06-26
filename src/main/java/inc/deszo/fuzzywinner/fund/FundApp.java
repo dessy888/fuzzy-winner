@@ -6,14 +6,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.MongoClientOptions;
 import inc.deszo.fuzzywinner.fund.model.Fund;
-import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
-import inc.deszo.fuzzywinner.fund.model.FundInfos;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
+import inc.deszo.fuzzywinner.fund.model.FundMapping;
 import inc.deszo.fuzzywinner.fund.repository.FundHistoryPricesRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundInfosRepository;
+import inc.deszo.fuzzywinner.fund.repository.FundMappingsRepository;
 import inc.deszo.fuzzywinner.fund.repository.FundPerformanceRepository;
 import inc.deszo.fuzzywinner.fund.repository.FundRepository;
+import inc.deszo.fuzzywinner.shared.model.HistoryPrice;
+import inc.deszo.fuzzywinner.shared.model.Type;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
+import inc.deszo.fuzzywinner.utils.SoundUtils;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -62,7 +65,7 @@ public class FundApp implements CommandLineRunner {
   private FundRepository fundRepository;
 
   @Autowired
-  private FundInfosRepository fundInfosRepository;
+  private FundMappingsRepository fundMappingsRepository;
 
   @Autowired
   private FundHistoryPricesRepository fundHistoryPricesRepository;
@@ -78,7 +81,7 @@ public class FundApp implements CommandLineRunner {
   }
 
   @PostConstruct
-  public void init() throws Exception {
+  public void init() {
     restTemplate = new RestTemplate();
   }
 
@@ -90,27 +93,29 @@ public class FundApp implements CommandLineRunner {
     setup(false);
 
     // set updateFundInfo to true very first time repo is populated
-    loadFunds(false, true);
+    loadFunds(true, false, true);
 
-    updateFundsInfos(true);
+    updateFundsMappings(true);
 
     updateFundsHistoryPrices(false);
 
     runStatistics(DateUtils.getLocalDate("12/06/2017", DateUtils.STANDARD_FORMAT));
 
     genFundReports();
+
+    SoundUtils.playSound();
   }
 
   private void setup(boolean deleteAll) {
     if (deleteAll) {
       fundRepository.deleteAll();
-      fundInfosRepository.deleteAll();
+      fundMappingsRepository.deleteAll();
       fundHistoryPricesRepository.deleteAll();
       fundPerformanceRepository.deleteAll();
     }
   }
 
-  private void loadFunds(boolean updateFundInfos, boolean updatePlusFund) throws IOException, ParseException {
+  private void loadFunds(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund) throws IOException, ParseException {
 
     int numOfFundsUpdated = 0;
     int numOfFundCompany = 0;
@@ -131,7 +136,7 @@ public class FundApp implements CommandLineRunner {
 
     for (Element option : options) {
 
-      if (option.val() == "")
+      if (option.val().equalsIgnoreCase(""))
         continue;
 
       logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
@@ -154,6 +159,7 @@ public class FundApp implements CommandLineRunner {
             logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
             Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
             newFund.setKey();
+            newFund.setUrl();
 
             logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
 
@@ -162,25 +168,30 @@ public class FundApp implements CommandLineRunner {
 
             Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
             if (loadedFund == null) {
-              logger.info("Saving Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
               fundRepository.save(newFund);
+              logger.info("Saved Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
               numOfFundsUpdated++;
             } else {
-              logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
+              if (reloadFund) {
+                fundRepository.updateFund(newFund);
+                logger.info("Updated Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
+              } else {
+                logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
+              }
             }
 
             if (updatePlusFund) {
               //update plusFund
-              if (fundInfosRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+              if (fundMappingsRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
                 logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
               } else {
                 logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
               }
             }
 
-            if (updateFundInfos) {
+            if (updateFundMappings) {
               //update inceptionDate and isin
-              updateFundInfos(sedol);
+              updateFundMapping(sedol);
             }
             fundCount++;
           }
@@ -201,19 +212,19 @@ public class FundApp implements CommandLineRunner {
     logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
   }
 
-  private void updateFundsInfos(boolean onlyNewOnes) throws ParseException {
+  private void updateFundsMappings(boolean onlyNewOnes) throws ParseException {
 
     int numOfISINLoaded = 0;
     int fundCount = 0;
 
-    List<String> sedols = fundRepository.getDistinctSedol();
+    List<String> sedols = (List<String>) fundRepository.getDistinctSedol();
 
     if (onlyNewOnes) {
       for (String sedol : sedols) {
         fundCount++;
         logger.info("Fund {}, Sedol {}.", fundCount, sedol);
-        if (fundInfosRepository.findFirstBySedol(sedol) == null) {
-          if (updateFundInfos(sedol)) {
+        if (fundMappingsRepository.findFirstBySedol(sedol) == null) {
+          if (updateFundMapping(sedol)) {
             numOfISINLoaded++;
           }
         } else {
@@ -224,7 +235,7 @@ public class FundApp implements CommandLineRunner {
       for (String sedol : sedols) {
         fundCount++;
         logger.info("Fund {}, Sedol {}.", fundCount, sedol);
-        updateFundInfos(sedol);
+        updateFundMapping(sedol);
         numOfISINLoaded++;
       }
     }
@@ -232,11 +243,11 @@ public class FundApp implements CommandLineRunner {
     logger.info("*****Number of updated ISIN: {}", numOfISINLoaded);
   }
 
-  private boolean updateFundInfos(String sedol) throws ParseException {
+  private boolean updateFundMapping(String sedol) throws ParseException {
 
     boolean success = false;
 
-    // now get the isin into fundinfos
+    // now get the isin into fundmapping
     logger.info("Loading Fund ISIN using sedol: {}", sedol);
 
     try {
@@ -259,12 +270,13 @@ public class FundApp implements CommandLineRunner {
       } else {
         logger.debug("ISIN: {} for SEDOL {} found.", isin, sedol);
 
-        FundInfos newFundInfos = new FundInfos(sedol, isin, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+        FundMapping newFundMapping = new FundMapping(sedol, isin, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT),
+            Type.FUND);
 
         // check if fundInfo exist?
-        FundInfos loadedFundInfos = fundInfosRepository.findISIN(sedol, isin);
-        if (loadedFundInfos == null) {
-          fundInfosRepository.save(newFundInfos);
+        FundMapping loadedFundMapping = fundMappingsRepository.findISIN(sedol, isin);
+        if (loadedFundMapping == null) {
+          fundMappingsRepository.save(newFundMapping);
           logger.info("ISIN: {} for SEDOL {} saved.", isin, sedol);
           success = true;
         } else {
@@ -275,7 +287,7 @@ public class FundApp implements CommandLineRunner {
       //update InceptionDate from HL first otherwise use the ones from FT
       if (!launchDate.equalsIgnoreCase("n/a")) {
         String inceptionDate = DateUtils.getDatefromFormat(launchDate, "d MMMM yyyy", DateUtils.STANDARD_FORMAT);
-        if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+        if (fundMappingsRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
           logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
         } else {
           logger.info("Inception date for sedol {}: {} NOT updated.", sedol, inceptionDate);
@@ -299,31 +311,31 @@ public class FundApp implements CommandLineRunner {
     int numOfFundsLoaded = 0;
     int fundCount = 0;
 
-    List<FundInfos> fundInfos;
+    List<FundMapping> fundMappings;
 
     if (onlyPlusFunds) {
-      fundInfos = fundInfosRepository.findPlusFunds(new Sort(Sort.Direction.DESC, "sedol"));
+      fundMappings = fundMappingsRepository.findPlusFunds(new Sort(Sort.Direction.DESC, "sedol"));
     } else {
-      fundInfos = fundInfosRepository.findAllDistinct(new Sort(Sort.Direction.DESC, "sedol"));
+      fundMappings = fundMappingsRepository.findAllDistinct(new Sort(Sort.Direction.DESC, "sedol"));
     }
 
-    for (FundInfos fundInfo : fundInfos) {
+    for (FundMapping fundMapping : fundMappings) {
 
       fundCount++;
-      logger.info("Fund {}, Sedol {}.", fundCount, fundInfo.getSedol());
+      logger.info("Fund {}, Sedol {}.", fundCount, fundMapping.getSedol());
 
-      if (fundInfo.getInceptionDate() == null) {
-        logger.info("No inception date for Sedol: {} {} {} {} hence skipped!", fundInfo.getSedol(),
-            fundInfo.getIsin(), fundInfo.getFtSymbol(), fundInfo.getPlusFund());
+      if (fundMapping.getInceptionDate() == null) {
+        logger.info("No inception date for Sedol: {} {} {} {} hence skipped!", fundMapping.getSedol(),
+            fundMapping.getIsin(), fundMapping.getFtSymbol(), fundMapping.getPlusFund());
         continue;
       }
 
-      logger.info("Starting download of historical prices for: {}, {}, {}, {}, {}", fundInfo.getSedol(),
-          fundInfo.getIsin(), fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol(), fundInfo.getPlusFund());
+      logger.info("Starting download of historical prices for: {}, {}, {}, {}, {}", fundMapping.getSedol(),
+          fundMapping.getIsin(), fundMapping.getInceptionLocalDate(), fundMapping.getFtSymbol(), fundMapping.getPlusFund());
 
-      numOfFundsLoaded += updateFundHistoryPrices(fundInfo.getSedol(), fundInfo.getIsin(),
-          fundInfo.getInceptionLocalDate(), fundInfo.getFtSymbol());
-      logger.info("Download completed for: {}", fundInfo.getSedol());
+      numOfFundsLoaded += updateFundHistoryPrices(fundMapping.getSedol(), fundMapping.getIsin(),
+          fundMapping.getInceptionLocalDate(), fundMapping.getFtSymbol());
+      logger.info("Download completed for: {}", fundMapping.getSedol());
     }
 
     logger.info("*****Fund History Prices download for {} funds.", numOfFundsLoaded);
@@ -361,7 +373,7 @@ public class FundApp implements CommandLineRunner {
       Document ftCompanyLookupResponseDoc = Jsoup.parse(ftCompanyLookupResponseHTML);
       Element ftCompanyLookupResponseHref = ftCompanyLookupResponseDoc.select("a[href]").last();
 
-      String ftIsin = "";
+      String ftIsin;
       try {
         ftIsin = ftCompanyLookupResponseHref.html();
         logger.info("FT Company LookUp Response ISIN {}: {}", isin, ftIsin);
@@ -386,7 +398,7 @@ public class FundApp implements CommandLineRunner {
           return 0;
         }
 
-        if (fundInfosRepository.updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+        if (fundMappingsRepository.updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
           logger.info("FT Symbol for sedol {}: {} updated.", sedol, ftSymbol);
         }
       }
@@ -404,7 +416,7 @@ public class FundApp implements CommandLineRunner {
         if (inceptionISODate != null) {
           inceptionDate = DateUtils.getDateByIsoDate(inceptionISODate, DateUtils.STANDARD_FORMAT);
 
-          if (fundInfosRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+          if (fundMappingsRepository.updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
             logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
           }
 
@@ -430,7 +442,7 @@ public class FundApp implements CommandLineRunner {
 
     //check the last date it is in the database
     String startDate;
-    List<FundHistoryPrices> fundHistoryPrices = fundHistoryPricesRepository
+    List<FundHistoryPrice> fundHistoryPrices = fundHistoryPricesRepository
         .getLastUpdated(sedol, isin, ftSymbol);
     if (fundHistoryPrices.size() > 0) {
       startDate = DateUtils.getNextWorkingDate(fundHistoryPrices.get(0).getCobDate(),
@@ -478,7 +490,8 @@ public class FundApp implements CommandLineRunner {
 
         logger.info("Date: {}, Price: {}", cobDate, price);
 
-        FundHistoryPrices fundHistoryPrice = new FundHistoryPrices(sedol, isin, ftSymbol, price, cobDate);
+        FundHistoryPrice fundHistoryPrice = new FundHistoryPrice(sedol, isin, ftSymbol,
+            price, cobDate, Type.FUND);
         fundHistoryPricesRepository.save(fundHistoryPrice);
         pricesSaved = true;
       }
@@ -511,7 +524,7 @@ public class FundApp implements CommandLineRunner {
   }
 
   private void genFundReports() throws IOException {
-    fundPerformanceRepository.genCsvFundReport();
+    fundRepository.genCsvFundReport();
   }
 
   @Bean
@@ -530,9 +543,11 @@ public class FundApp implements CommandLineRunner {
     @Bean
     public MongoClientOptions mongoOptions() {
       return MongoClientOptions.builder()
-          .socketTimeout(30000)
-          .connectTimeout(30000)
-          .serverSelectionTimeout(30000).build();
+          .maxWaitTime(0)
+          .socketTimeout(0)
+          .connectTimeout(0)
+          .serverSelectionTimeout(0)
+          .build();
     }
   }
 }

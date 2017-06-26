@@ -1,22 +1,22 @@
 package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.fund.model.FundInfos;
+import inc.deszo.fuzzywinner.fund.model.FundMapping;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
 import java.util.List;
 
-public interface FundInfosRepository extends MongoRepository<FundInfos, Long>, FundInfosRepositoryCustom {
+public interface FundMappingsRepository extends MongoRepository<FundMapping, Long>, FundMappingsRepositoryCustom {
 
-  FundInfos findFirstBySedol(String sedol);
+  FundMapping findFirstBySedol(String sedol);
 
   @Query("{sedol: '?0', isin: '?1'}")
-  FundInfos findISIN(String sedol, String isin);
+  FundMapping findISIN(String sedol, String isin);
 
   @Query(value = "{}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1, plusFund: 1}")
-  List<FundInfos> findAllDistinct(Sort sort);
+  List<FundMapping> findAllDistinct(Sort sort);
 
   @Query("{plusFund: {$ne : 'false'}}")
-  List<FundInfos> findPlusFunds(Sort sort);
+  List<FundMapping> findPlusFunds(Sort sort);
 }

@@ -1,4 +1,4 @@
-db.fund.aggregate([
+db.funds.aggregate([
     { $sort: { key: 1 } },
     { $lookup: {
            from: "fundperformance",
@@ -23,6 +23,6 @@ db.fund.aggregate([
 ], 
     {
         allowDiskUse: true,
-        cursor: { batchSize: 1000000 }
+        cursor: { batchSize: 0 }
     }
 )

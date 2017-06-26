@@ -1,0 +1,1 @@
+db.mappings.find( { sedol: { $eq : 'BC7GX83' } } )

@@ -1,6 +1,6 @@
 package inc.deszo.fuzzywinner.fund.repository;
 
-import inc.deszo.fuzzywinner.fund.model.FundHistoryPrices;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -24,7 +24,7 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
   private MongoTemplate mongoTemplate;
 
   @Override
-  public List<FundHistoryPrices> getDistinctSedol() {
+  public List<FundHistoryPrice> getDistinctSedol() {
 
     Aggregation agg = newAggregation(
         group("sedol", "isin", "ftSymbol").count().as("total"),
@@ -33,7 +33,7 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
     );
 
     //Convert the aggregation result into a List
-    AggregationResults<FundHistoryPrices> groupResults = mongoTemplate.aggregate(agg, FundHistoryPrices.class, FundHistoryPrices.class);
+    AggregationResults<FundHistoryPrice> groupResults = mongoTemplate.aggregate(agg, FundHistoryPrice.class, FundHistoryPrice.class);
 
     return groupResults.getMappedResults();
 
@@ -41,7 +41,7 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
   }
 
   @Override
-  public List<FundHistoryPrices> getLastUpdated(String sedol, String isin, String ftSymbol) {
+  public List<FundHistoryPrice> getLastUpdated(String sedol, String isin, String ftSymbol) {
 
     Query query = new Query();
     query.limit(1);
@@ -50,11 +50,11 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
     query.addCriteria(Criteria.where("isin").is(isin));
     query.addCriteria(Criteria.where("ftSymbol").is(ftSymbol));
 
-    return mongoTemplate.find(query, FundHistoryPrices.class);
+    return mongoTemplate.find(query, FundHistoryPrice.class);
   }
 
   @Override
-  public List<FundHistoryPrices> getOldestPrice(String sedol, String isin, String ftSymbol) {
+  public List<FundHistoryPrice> getOldestPrice(String sedol, String isin, String ftSymbol) {
     Query query = new Query();
     query.limit(1);
     query.with(new Sort(Sort.Direction.ASC, "cobDate"));
@@ -62,11 +62,11 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
     query.addCriteria(Criteria.where("isin").is(isin));
     query.addCriteria(Criteria.where("ftSymbol").is(ftSymbol));
 
-    return mongoTemplate.find(query, FundHistoryPrices.class);
+    return mongoTemplate.find(query, FundHistoryPrice.class);
   }
 
   @Override
-  public List<FundHistoryPrices> getFundPriceByDate(String sedol, String isin, String ftSymbol, String cobDate) throws ParseException {
+  public List<FundHistoryPrice> getFundPriceByDate(String sedol, String isin, String ftSymbol, String cobDate) throws ParseException {
 
     Query query = new Query();
     query.limit(1);
@@ -76,6 +76,6 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
     query.addCriteria(Criteria.where("ftSymbol").is(ftSymbol));
     query.addCriteria(Criteria.where("cobDate").lte(DateUtils.getDate(cobDate, DateUtils.STANDARD_FORMAT)));
 
-    return mongoTemplate.find(query, FundHistoryPrices.class);
+    return mongoTemplate.find(query, FundHistoryPrice.class);
   }
 }

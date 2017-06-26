@@ -6,6 +6,7 @@ import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustRepositor
 import inc.deszo.fuzzywinner.utils.CurrencyUtils;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.MathUtils;
+import inc.deszo.fuzzywinner.utils.SoundUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -23,9 +24,7 @@ import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
-import org.springframework.web.client.RestTemplate;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.List;
@@ -38,8 +37,6 @@ import java.util.concurrent.Semaphore;
 public class InvestmentTrustApp implements CommandLineRunner {
 
   private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustApp.class);
-
-  private RestTemplate restTemplate;
 
   @Autowired
   private InvestmentTrustRepository investmentTrustRepository;
@@ -57,11 +54,6 @@ public class InvestmentTrustApp implements CommandLineRunner {
     SpringApplication.run(InvestmentTrustApp.class, args);
   }
 
-  @PostConstruct
-  public void init() throws Exception {
-    restTemplate = new RestTemplate();
-  }
-
   @Override
   public void run(String... args) throws Exception {
 
@@ -70,14 +62,11 @@ public class InvestmentTrustApp implements CommandLineRunner {
     loadInvestmentTrusts(true);
 
     investmentTrustRepository.genCsvInvestmentReport();
+
+    SoundUtils.playSound();
   }
 
-  private void setup(boolean deleteAll) {
-    if (deleteAll) {
-    }
-  }
-
-  private void loadInvestmentTrusts(boolean reloadCobData) throws IOException, ParseException {
+  private void loadInvestmentTrusts(boolean reloadCobData) throws IOException {
 
     //Get list of companyIds
     Document doc = Jsoup.connect("http://www.hl.co.uk/shares/investment-trusts/search-for-investment-trusts?it_search_input=&companyid=150&tab=prices&sectorid=&tab=prices").timeout(0).get();
@@ -88,7 +77,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     for (Element option : options) {
 
-      if (option.val() == "") {
+      if (option.val().equalsIgnoreCase("")) {
         continue;
       }
 
@@ -100,9 +89,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
       Runnable longRunningTask = () -> {
         try {
           loadCompanyInvestmentTrust(reloadCobData, companyId, companyName);
-        } catch (IOException e) {
-          e.printStackTrace();
-        } catch (ParseException e) {
+        } catch (IOException | ParseException e) {
           e.printStackTrace();
         }
       };
@@ -115,6 +102,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
     }
 
     executor.shutdown();
+    //noinspection StatementWithEmptyBody
     while (!executor.isTerminated()) {
     }
 
@@ -126,7 +114,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     Document doc;
     InvestmentTrust investmentTrust;
-    int currentInvestmentTrustCount = 0;
+    int currentInvestmentTrustCount;
 
     logger.info(Thread.currentThread().getName() + "started.");
 

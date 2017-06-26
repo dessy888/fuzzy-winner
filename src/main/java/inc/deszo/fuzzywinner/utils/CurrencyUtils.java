@@ -2,9 +2,9 @@ package inc.deszo.fuzzywinner.utils;
 
 public class CurrencyUtils {
 
-  public static String HL_GBX_CURRENCY = "GBX";
+  public static final String HL_GBX_CURRENCY = "GBX";
 
-  public static String HL_USD_CURRENCY = "USD";
+  public static final String HL_USD_CURRENCY = "USD";
 
   public static double getAmount(String currencyAmt, String currency) {
 

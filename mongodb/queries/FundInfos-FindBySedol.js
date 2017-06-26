@@ -1,1 +1,0 @@
-db.fundinfos.find( { sedol: { $eq : 'BC7GX83' } } )

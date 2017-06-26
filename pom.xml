@@ -15,9 +15,14 @@
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <org.springframework.version>4.3.4.RELEASE</org.springframework.version>
+        <org.springframework.version>4.3.9.RELEASE</org.springframework.version>
         <jsoup.version>1.9.1</jsoup.version>
         <jackson.version>2.8.6</jackson.version>
+
+        <logback.version>1.2.3</logback.version>
+
+        <spring-data-mongodb.version>1.10.4.RELEASE</spring-data-mongodb.version>
+        <mongo-java-driver.version>3.4.2</mongo-java-driver.version>
 
         <spring-boot-maven-plugin.version>1.5.3.RELEASE</spring-boot-maven-plugin.version>
         <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
@@ -50,6 +55,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-mongodb</artifactId>
+            <version>${spring-data-mongodb.version}</version>
         </dependency>
 
         <dependency>
@@ -108,6 +119,12 @@
             <version>${jsoup.version}</version>
         </dependency>
 
+        <!-- logging -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -176,4 +193,5 @@
             </plugin>
         </plugins>
     </reporting>
+
 </project>

@@ -4,22 +4,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
-import com.mongodb.BasicDBObject;
-import com.mongodb.CommandResult;
 import com.mongodb.WriteResult;
-import inc.deszo.fuzzywinner.fund.model.Fund;
-import inc.deszo.fuzzywinner.fund.model.FundInfos;
 import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
-import inc.deszo.fuzzywinner.utils.MongoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -29,12 +22,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 
 import static inc.deszo.fuzzywinner.utils.CsvUtils.csvWriter;
-import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
 public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryCustom {
 

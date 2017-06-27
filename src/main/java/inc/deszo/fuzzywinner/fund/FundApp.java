@@ -146,7 +146,6 @@ public class FundApp implements CommandLineRunner {
       do {
 
         String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=" + page + "&SQ_DESIGN_NAME=json", null, String.class);
-        //String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?sectorid=" + companyId + "&lo=0&page=1&SQ_DESIGN_NAME=json", null, String.class);
         logger.debug(result);
 
         //Get results from page

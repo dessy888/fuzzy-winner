@@ -45,11 +45,11 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.ParseException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.*;
 
 @SpringBootApplication
 public class InvestmentTrustApp implements CommandLineRunner {
@@ -74,8 +74,6 @@ public class InvestmentTrustApp implements CommandLineRunner {
   private static int numOfInvestmentTrustCompany = 0;
   private static int investmentTrustCount = 0;
 
-  private Semaphore semaphore = new Semaphore(1);
-
   @PostConstruct
   public void init() {
     restTemplate = new RestTemplate();
@@ -90,23 +88,23 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
 
-    loadInvestmentTrusts(true);
+    loadInvestmentTrusts(true, 5);
 
-    updateInvestmentTrustsHistoryPrices();
+    updateInvestmentTrustsHistoryPrices(5);
 
     investmentTrustsRepository.genCsvInvestmentReport();
 
     SoundUtils.playSound();
   }
 
-  private void loadInvestmentTrusts(boolean reloadCobData) throws IOException {
+  private void loadInvestmentTrusts(boolean reloadCobData, int numOfThreads) throws IOException {
 
     //Get list of companyIds
     Document doc = Jsoup.connect("http://www.hl.co.uk/shares/investment-trusts/search-for-investment-trusts?it_search_input=&companyid=150&tab=prices&sectorid=&tab=prices").timeout(0).get();
     Element content = doc.getElementById("companyid");
     Elements options = content.getElementsByTag("option");
 
-    ExecutorService executor = Executors.newFixedThreadPool(10);
+    ExecutorService executor = Executors.newFixedThreadPool(numOfThreads);
 
     for (Element option : options) {
 
@@ -292,7 +290,9 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
         if (doc.select("span[class='stream_msg_closed dNone']").hasText()) {
           String msgClosedText = doc.select("span[class='stream_msg_closed dNone']").first().text();
-          investmentTrust.setUpdated(msgClosedText.substring(msgClosedText.indexOf("on") + 3));
+          investmentTrust.setUpdated(DateUtils
+              .getDatefromFormat(msgClosedText.substring(msgClosedText.indexOf("on") + 3),
+              "dd MMMM yyyy", DateUtils.STANDARD_FORMAT));
         } else {
           investmentTrust.setUpdated(DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
         }
@@ -331,7 +331,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
     logger.info(Thread.currentThread().getName() + "ended.");
   }
 
-  private void updateInvestmentTrustsHistoryPrices() throws IOException, ParseException {
+  private void updateInvestmentTrustsHistoryPrices(int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
 
     int numOfInvestmentTrustLoaded = 0;
     int investmentTrustCount = 0;
@@ -339,32 +339,63 @@ public class InvestmentTrustApp implements CommandLineRunner {
     List<InvestmentTrustMapping> investmentTrustMappings = investmentTrustMappingsRepository
         .findAllDistinct(new Sort(Sort.Direction.DESC, "sedol"));
 
+    ExecutorService executor = Executors.newFixedThreadPool(numOfThreads);
+    Set<Future<Integer>> set = new HashSet<Future<Integer>>();
+
     for (InvestmentTrustMapping investmentTrustMapping : investmentTrustMappings) {
 
       investmentTrustCount++;
-      logger.info("Investment Trust {}, Sedol {}.", investmentTrustCount,
+      logger.info("Investment Trust ({}), Sedol {}.", investmentTrustCount,
           investmentTrustMapping.getSedol());
 
       if (investmentTrustMapping.getInceptionDate() == null) {
-        logger.info("No inception date for Sedol: {} {} {} hence skipped!", investmentTrustMapping.getSedol(),
+        logger.info("Investment Trust ({}), No inception date for Sedol: {} {} {} hence skipped!",
+            investmentTrustCount, investmentTrustMapping.getSedol(),
             investmentTrustMapping.getIsin(), investmentTrustMapping.getFtSymbol());
         continue;
       }
 
-      logger.info("Starting download of historical prices for: {}, {}, {}, {}", investmentTrustMapping.getSedol(),
+      logger.info("Investment Trust ({}), Starting download of historical prices for: {}, {}, {}, {}",
+          investmentTrustCount, investmentTrustMapping.getSedol(),
           investmentTrustMapping.getIsin(), investmentTrustMapping.getInceptionLocalDate(),
           investmentTrustMapping.getFtSymbol());
 
-      numOfInvestmentTrustLoaded += updateInvestmentTrustHistoryPrices(investmentTrustMapping.getSedol(),
-          investmentTrustMapping.getIsin(), investmentTrustMapping.getInceptionLocalDate(),
-          investmentTrustMapping.getFtSymbol());
-      logger.info("Download completed for: {}", investmentTrustMapping.getSedol());
+      int currentInvestmentTrust = investmentTrustCount;
+      Callable<Integer> longRunningTask = () -> {
+        int updatedCount = 0;
+        try {
+          updatedCount = updateInvestmentTrustHistoryPrices(currentInvestmentTrust, investmentTrustMapping.getSedol(),
+              investmentTrustMapping.getIsin(), investmentTrustMapping.getInceptionLocalDate(),
+              investmentTrustMapping.getFtSymbol());
+
+          logger.info("Download completed for: {}", investmentTrustMapping.getSedol());
+
+        } catch (IOException | ParseException e) {
+          logger.error("BOOM!", e);
+        }
+
+        return updatedCount;
+      };
+
+      Future<Integer> future = executor.submit(longRunningTask);
+      set.add(future);
     }
 
-    logger.info("*****Investment Trusts History Prices download for {} investment trusts.", numOfInvestmentTrustLoaded);
+    executor.shutdown();
+    //noinspection StatementWithEmptyBody
+    while (!executor.isTerminated()) {
+    }
+
+    for (Future<Integer> future : set) {
+      numOfInvestmentTrustLoaded += future.get();
+    }
+
+    logger.info("*****Investment Trusts History Prices download for {} investment trusts.",
+        numOfInvestmentTrustLoaded);
   }
 
-  private int updateInvestmentTrustHistoryPrices(String sedol, String isin, String inceptionDate,
+  private int updateInvestmentTrustHistoryPrices(int investmentTrustCount, String sedol,
+                                                 String isin, String inceptionDate,
                                                  String ftSymbol) throws IOException, ParseException {
 
     HttpHeaders headers = new HttpHeaders();
@@ -398,12 +429,12 @@ public class InvestmentTrustApp implements CommandLineRunner {
         if (security.get("url").textValue().contains("investment-trust")) {
           investmentTrustUrl = security.get("url").textValue();
           ftStockSymbol = investmentTrustUrl.substring(investmentTrustUrl.indexOf("=")+1);
-          logger.info("Found Investment Trust {}: {}", sedol, investmentTrustUrl);
+          logger.info("Found Investment Trust ({}) {}: {}", investmentTrustCount, sedol, investmentTrustUrl);
         }
       }
 
       if (investmentTrustUrl.isEmpty()) {
-        logger.info("Investment Trust not found on FT!: {}", sedol);
+        logger.info("Investment Trust ({}) not found on FT!: {}", investmentTrustCount, sedol);
         return 0;
       }
 
@@ -419,13 +450,14 @@ public class InvestmentTrustApp implements CommandLineRunner {
         try {
           ftSymbol = ftHistoricalPricesAppJnode.get("symbol").textValue();
         } catch (NullPointerException npe) {
-          logger.error("ftSymbol NOT FOUND!");
+          logger.error("Investment Trust ({}), FT Symbol NOT FOUND!", investmentTrustCount);
           return 0;
         }
 
         if (investmentTrustMappingsRepository
             .updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-          logger.info("FT Symbol for sedol {}: {} updated.", sedol, ftSymbol);
+          logger.info("Investment Trust ({}), FT Symbol for sedol {}: {} updated.",
+              investmentTrustCount, sedol, ftSymbol);
         }
       }
 
@@ -436,7 +468,8 @@ public class InvestmentTrustApp implements CommandLineRunner {
         try {
           inceptionISODate = ftHistoricalPricesAppJnode.get("inception").textValue();
         } catch (NullPointerException npe) {
-          logger.error("Can't find Inception Date, hence will try Launch Date.");
+          logger.error("Investment Trust ({}), Can't find Inception Date, hence will try Launch Date.",
+              investmentTrustCount);
         }
 
         if (inceptionISODate != null) {
@@ -444,12 +477,13 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
           if (investmentTrustMappingsRepository
               .updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-            logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
+            logger.info("Investment Trust ({}), Inception date for sedol {}: {} updated.",
+                investmentTrustCount, sedol, inceptionDate);
           }
 
           inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
         } else {
-          logger.info("No inceptionDate, hence skipped.");
+          logger.info("Investment Trust ({}): No inceptionDate, hence skipped.", investmentTrustCount);
           return 0;
         }
       } else {
@@ -463,7 +497,8 @@ public class InvestmentTrustApp implements CommandLineRunner {
       inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
     }
 
-    logger.info("ISIN {}, inception: {}, symbol: {}", isin, inceptionDate, ftSymbol);
+    logger.info("Investment Trust ({}), ISIN {}, inception: {}, symbol: {}",
+        investmentTrustCount, isin, inceptionDate, ftSymbol);
 
     //now get the historical prices year by year
 
@@ -475,20 +510,24 @@ public class InvestmentTrustApp implements CommandLineRunner {
       startDate = DateUtils.getNextWorkingDate(fundHistoryPrices.get(0).getCobDate(),
           DateUtils.FT_FORMAT);
 
-      logger.info("Fund history prices already updated. Will update from: {}", startDate);
+      logger.info("Investment Trust ({}), Fund history prices already updated. Will update from: {}",
+          investmentTrustCount, startDate);
     } else {
       startDate = inceptionDate;
-      logger.info("Fund prices will updated from: {}", startDate);
+      logger.info("Investment Trust ({}), Fund prices will updated from: {}", investmentTrustCount,
+          startDate);
     }
 
     String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, DateUtils.FT_FORMAT);
 
     while (DateUtils.isLessThanOrEqualToDate(startDate, DateUtils.getTodayDate(DateUtils.FT_FORMAT), DateUtils.FT_FORMAT)) {
-      logger.info("Loading Historical Prices from {} to {}", startDate, endDate);
+      logger.info("Investment Trust ({}), Loading Historical Prices from {} to {}",
+          investmentTrustCount, startDate, endDate);
 
       String historicalPriceAppURL = "https://markets.ft.com/data/equities/ajax/get-historical-prices?startDate=" +
           URLEncoder.encode(startDate, "UTF-8") + "&endDate=" + URLEncoder.encode(endDate, "UTF-8") + "&symbol=" + ftSymbol;
-      logger.info("Loading Historical Prices using URL: {}", historicalPriceAppURL);
+      logger.info("Investment Trust ({}), Loading Historical Prices using URL: {}",
+          investmentTrustHistoryPricesRepository, historicalPriceAppURL);
 
       MultiValueMap<String, String> historicalPriceAppMap = new LinkedMultiValueMap<>();
       historicalPriceAppMap.add("startDate", startDate);
@@ -517,9 +556,12 @@ public class InvestmentTrustApp implements CommandLineRunner {
         Double price_high = Double.valueOf(ftHistoricalPriceElement.select("td").get(2).text().replace(",", ""));
         Double price_low = Double.valueOf(ftHistoricalPriceElement.select("td").get(3).text().replace(",", ""));
         Double price_close = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text().replace(",", ""));
-        Double volume = Double.valueOf(ftHistoricalPriceElement.select("td").get(5).text().replace(",", ""));
 
-        logger.info("Date: {}, Price= Open: {}, High: {}, Low: {}, Close: {}, Volume: {}", cobDate,
+        String volumeStr = ftHistoricalPriceElement.select("td").get(5).child(0).text().replace(",", "");
+        Double volume = Double.valueOf(volumeStr);
+
+        logger.info("Investment Trust ({}), Date: {}, Price= Open: {}, High: {}, Low: {}, Close: {}, Volume: {}",
+            investmentTrustCount, cobDate,
             price_open, price_high, price_low, price_close, volume);
 
         InvestmentTrustHistoryPrice investmentTrustHistoryPrice = new InvestmentTrustHistoryPrice(sedol,
@@ -530,6 +572,10 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
       startDate = DateUtils.addDayToDate(endDate, DateUtils.FT_FORMAT, 1);
       endDate = DateUtils.getEndDateForHistoricalPrices(endDate, DateUtils.FT_FORMAT);
+    }
+
+    if (pricesSaved) {
+      logger.info("Investment Trust ({}) {} Historical Prices saved.", investmentTrustCount, sedol);
     }
 
     return (pricesSaved) ? 1 : 0;

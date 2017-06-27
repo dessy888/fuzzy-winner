@@ -27,18 +27,18 @@ import java.util.List;
 
 import static inc.deszo.fuzzywinner.utils.CsvUtils.csvWriter;
 
-public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryCustom {
+public class InvestmentTrustsRepositoryImpl implements InvestmentTrustsRepositoryCustom {
 
-  private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustRepositoryImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustsRepositoryImpl.class);
 
   @Autowired
   private MongoTemplate mongoTemplate;
 
   @Autowired
-  private InvestmentTrustRepository investmentTrustRepository;
+  private InvestmentTrustsRepository investmentsTrustRepository;
 
   @Override
-  public int updateInvestmentTrust(InvestmentTrust investmentTrust) {
+  public int update(InvestmentTrust investmentTrust) {
 
     Query query = new Query(Criteria.where("key").is(investmentTrust.getKey()));
     Update update = new Update();
@@ -94,7 +94,7 @@ public class InvestmentTrustRepositoryImpl implements InvestmentTrustRepositoryC
     ObjectMapper mapper = JsonUtils.getMAPPER();
     CsvMapper csvMapper = new CsvMapper();
 
-    List<InvestmentTrust> investmentTrusts = investmentTrustRepository.findAll();
+    List<InvestmentTrust> investmentTrusts = investmentsTrustRepository.findAll();
     List<LinkedHashMap<String, String>> myArrList = new ArrayList<>();
 
     for (InvestmentTrust investmentTrust:investmentTrusts) {

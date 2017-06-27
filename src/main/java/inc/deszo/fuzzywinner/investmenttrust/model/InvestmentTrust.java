@@ -365,7 +365,7 @@ public class InvestmentTrust {
 
   @JsonProperty("updated")
   public void setUpdated(String updated) throws ParseException {
-    this.updated = getDate(updated, DateUtils.HL_FORMAT);
+    this.updated = getDate(updated, DateUtils.STANDARD_FORMAT);
   }
 
   public String getKey() {

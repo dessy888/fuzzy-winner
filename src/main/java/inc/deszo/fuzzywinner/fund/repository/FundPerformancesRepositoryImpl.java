@@ -20,9 +20,9 @@ import java.text.ParseException;
 import java.time.LocalDate;
 import java.util.List;
 
-public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryCustom {
+public class FundPerformancesRepositoryImpl implements FundPerformancesRepositoryCustom {
 
-  private static final Logger logger = LoggerFactory.getLogger(FundPerformanceRepositoryImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(FundPerformancesRepositoryImpl.class);
 
   @Autowired
   MongoTemplate mongoTemplate;
@@ -31,19 +31,19 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
   private FundHistoryPricesRepository fundHistoryPricesRepository;
 
   @Autowired
-  private FundPerformanceRepository fundPerformanceRepository;
+  private FundPerformancesRepository fundPerformancesRepository;
 
   @Autowired
   private FundMappingsRepository fundMappingsRepository;
 
   @Autowired
-  private FundRepository fundRepository;
+  private FundsRepository fundsRepository;
 
   @Override
   public void calculate(LocalDate cobDate, boolean plusFundOnly) throws ParseException {
 
     //Update fund keys
-    //logger.info("Number of funds key updated: {}.", fundPerformanceRepository.updateKey());
+    //logger.info("Number of funds key updated: {}.", fundPerformancesRepository.updateKey());
 
     List<FundHistoryPrice> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
     int fundCount = 0;
@@ -77,7 +77,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
       }
 
       //get the last updated fund price from HL
-      List<Fund> lastHLCobPrice = fundRepository.getLastUpdated(fund.getSedol());
+      List<Fund> lastHLCobPrice = fundsRepository.getLastUpdated(fund.getSedol());
       Double lastHLClosePrice;
       String lastHLCobDate = "";
       for (Fund fundLastCob : lastHLCobPrice) {
@@ -119,7 +119,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
       }
 
       //check if performance data has already been calculated.
-      List<FundPerformance> fundPerformances = fundPerformanceRepository.findFundPeformance(fund.getSedol(),
+      List<FundPerformance> fundPerformances = fundPerformancesRepository.findFundPeformance(fund.getSedol(),
           fund.getIsin(), fund.getFtSymbol(), DateUtils.getDate(lastCobDate, DateUtils.STANDARD_FORMAT));
 
       if (fundPerformances.size() > 0) {
@@ -172,7 +172,7 @@ public class FundPerformanceRepositoryImpl implements FundPerformanceRepositoryC
         fundPerformance.setCobDate(lastCobDate);
         fundPerformance.setKey();
 
-        fundPerformanceRepository.save(fundPerformance);
+        fundPerformancesRepository.save(fundPerformance);
         logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!",
             fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
         numOfPerformanceCalculated++;

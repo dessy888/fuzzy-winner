@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 
-public interface FundRepositoryCustom {
+public interface FundsRepositoryCustom {
 
   List getDistinctSedol();
 

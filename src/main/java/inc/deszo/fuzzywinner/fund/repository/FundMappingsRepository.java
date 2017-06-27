@@ -14,9 +14,9 @@ public interface FundMappingsRepository extends MongoRepository<FundMapping, Lon
   @Query("{sedol: '?0', isin: '?1'}")
   FundMapping findISIN(String sedol, String isin);
 
-  @Query(value = "{}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1, plusFund: 1}")
+  @Query(value = "{type: 'FUND'}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1, plusFund: 1, type: 1}")
   List<FundMapping> findAllDistinct(Sort sort);
 
-  @Query("{plusFund: {$ne : 'false'}}")
+  @Query("{type: {$eq : 'FUND'}, plusFund: {$ne : 'false'}}")
   List<FundMapping> findPlusFunds(Sort sort);
 }

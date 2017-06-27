@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.repository.Query;
 import java.util.Date;
 import java.util.List;
 
-public interface FundRepository extends MongoRepository<Fund, Long>, FundRepositoryCustom {
+public interface FundsRepository extends MongoRepository<Fund, Long>, FundsRepositoryCustom {
 
   Fund findFirstBySedol(String sedol);
 

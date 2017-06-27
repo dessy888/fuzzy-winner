@@ -5,9 +5,9 @@ import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
 import java.io.IOException;
 import java.util.List;
 
-public interface InvestmentTrustRepositoryCustom {
+public interface InvestmentTrustsRepositoryCustom {
 
-  int updateInvestmentTrust(InvestmentTrust investmentTrust);
+  int update(InvestmentTrust investmentTrust);
 
   List<InvestmentTrust> getLastUpdated(String sedol);
 

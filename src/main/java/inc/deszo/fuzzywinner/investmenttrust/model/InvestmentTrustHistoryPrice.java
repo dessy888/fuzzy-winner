@@ -38,8 +38,8 @@ public class InvestmentTrustHistoryPrice extends HistoryPrice {
 
   public InvestmentTrustHistoryPrice(String sedol, String isin, String ftSymbol, double price_open,
                                      double price_high, double price_low, double price_close,
-                                     double volume, String cobDate, Type type) throws ParseException {
-    super(sedol, isin, ftSymbol, cobDate, type);
+                                     double volume, String cobDate) throws ParseException {
+    super(sedol, isin, ftSymbol, cobDate, Type.INVESTMENTTRUST);
     this.price_open = price_open;
     this.price_high = price_high;
     this.price_low = price_low;

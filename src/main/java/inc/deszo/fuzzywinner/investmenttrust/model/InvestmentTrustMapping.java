@@ -24,8 +24,9 @@ public class InvestmentTrustMapping extends Mapping {
     super();
   }
 
-  public InvestmentTrustMapping(String sedol, String isin, String updated) throws ParseException {
+  public InvestmentTrustMapping(String sedol, String isin, String inceptionDate, String updated) throws ParseException {
     super(sedol, isin, updated, Type.INVESTMENTTRUST);
+    this.setInceptionDate(inceptionDate);
   }
 
   public InvestmentTrustMapping(String sedol, String isin, String ftSymbol, String inceptionDate,

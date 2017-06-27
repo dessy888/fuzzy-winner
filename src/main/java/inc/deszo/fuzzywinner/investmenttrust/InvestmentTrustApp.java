@@ -1,12 +1,20 @@
 package inc.deszo.fuzzywinner.investmenttrust;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.MongoClientOptions;
+import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
+import inc.deszo.fuzzywinner.fund.model.FundMapping;
 import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
-import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustRepository;
-import inc.deszo.fuzzywinner.utils.CurrencyUtils;
-import inc.deszo.fuzzywinner.utils.DateUtils;
-import inc.deszo.fuzzywinner.utils.MathUtils;
-import inc.deszo.fuzzywinner.utils.SoundUtils;
+import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrustHistoryPrice;
+import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrustMapping;
+import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustHistoryPricesRepository;
+import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustMappingsRepository;
+import inc.deszo.fuzzywinner.investmenttrust.repository.InvestmentTrustsRepository;
+import inc.deszo.fuzzywinner.shared.model.Type;
+import inc.deszo.fuzzywinner.utils.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -18,14 +26,24 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.text.ParseException;
 import java.util.List;
 import java.util.TimeZone;
@@ -38,8 +56,16 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
   private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustApp.class);
 
+  private RestTemplate restTemplate;
+
   @Autowired
-  private InvestmentTrustRepository investmentTrustRepository;
+  private InvestmentTrustsRepository investmentTrustsRepository;
+
+  @Autowired
+  private InvestmentTrustMappingsRepository investmentTrustMappingsRepository;
+
+  @Autowired
+  private InvestmentTrustHistoryPricesRepository investmentTrustHistoryPricesRepository;
 
   @Autowired
   private MongoTemplate mongoTemplate;
@@ -50,7 +76,12 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
   private Semaphore semaphore = new Semaphore(1);
 
-  public static void main(String[] args) {
+  @PostConstruct
+  public void init() {
+    restTemplate = new RestTemplate();
+  }
+
+    public static void main(String[] args) {
     SpringApplication.run(InvestmentTrustApp.class, args);
   }
 
@@ -61,7 +92,9 @@ public class InvestmentTrustApp implements CommandLineRunner {
 
     loadInvestmentTrusts(true);
 
-    investmentTrustRepository.genCsvInvestmentReport();
+    updateInvestmentTrustsHistoryPrices();
+
+    investmentTrustsRepository.genCsvInvestmentReport();
 
     SoundUtils.playSound();
   }
@@ -90,7 +123,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
         try {
           loadCompanyInvestmentTrust(reloadCobData, companyId, companyName);
         } catch (IOException | ParseException e) {
-          e.printStackTrace();
+          logger.error("BOOM!", e);
         }
       };
 
@@ -110,7 +143,8 @@ public class InvestmentTrustApp implements CommandLineRunner {
         numOfInvestmentTrustCompany, numOfInvestmentTrustUpdated);
   }
 
-  private void loadCompanyInvestmentTrust(boolean reloadCobData, String companyId, String companyName) throws IOException, ParseException {
+  private void loadCompanyInvestmentTrust(boolean reloadCobData, String companyId,
+                                          String companyName) throws IOException, ParseException {
 
     Document doc;
     InvestmentTrust investmentTrust;
@@ -144,7 +178,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
       investmentTrust.setSedol(href.substring(href.lastIndexOf("/") + 1));
 
       //check if it has already been saved for this CobDate
-      List<InvestmentTrust> savedInvestmentTrust = investmentTrustRepository.getLastUpdated(investmentTrust.getSedol());
+      List<InvestmentTrust> savedInvestmentTrust = investmentTrustsRepository.getLastUpdated(investmentTrust.getSedol());
       if (savedInvestmentTrust.size() > 0) {
         if (savedInvestmentTrust.get(0).getUpdatedLocalDateString().equalsIgnoreCase(DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT))) {
           if (!reloadCobData) {
@@ -266,12 +300,26 @@ public class InvestmentTrustApp implements CommandLineRunner {
         investmentTrust.setUrl();
         investmentTrust.setKey();
 
-        if (investmentTrustRepository.findInvestmentTrustByKey(investmentTrust.getKey()) == null) {
-          investmentTrustRepository.save(investmentTrust);
-          logger.info("Saving Investment Trust {}: {}", currentInvestmentTrustCount, investmentTrust.toString());
+        if (investmentTrustsRepository.findInvestmentTrustByKey(investmentTrust.getKey()) == null) {
+          investmentTrustsRepository.save(investmentTrust);
+          logger.info("Saved Investment Trust {}: {}", currentInvestmentTrustCount, investmentTrust.toString());
         } else {
-          investmentTrustRepository.updateInvestmentTrust(investmentTrust);
-          logger.info("Updating Investment Trust {}: {}", currentInvestmentTrustCount, investmentTrust.toString());
+          if (investmentTrustsRepository.update(investmentTrust) == 1) {
+            logger.info("Updated Investment Trust {}: {}", currentInvestmentTrustCount, investmentTrust.toString());
+          }
+        }
+
+        InvestmentTrustMapping investmentTrustMapping = new InvestmentTrustMapping(investmentTrust.getSedol(),
+            investmentTrust.getIsin(), investmentTrust.getLaunchDateLocalDateString(),
+            DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+
+        if (investmentTrustMappingsRepository.findInvestmentTrustMappingBySedol(investmentTrust.getSedol()) == null) {
+          investmentTrustMappingsRepository.save(investmentTrustMapping);
+          logger.info("Saved Investment Trust Mapping: {}", investmentTrustMapping.getSedol());
+        } else {
+          if (investmentTrustMappingsRepository.update(investmentTrustMapping) == 1) {
+            logger.info("Updated Investment Trust Mapping: {}", investmentTrustMapping.getSedol());
+          }
         }
 
         synchronized (this) {
@@ -281,6 +329,210 @@ public class InvestmentTrustApp implements CommandLineRunner {
     }
 
     logger.info(Thread.currentThread().getName() + "ended.");
+  }
+
+  private void updateInvestmentTrustsHistoryPrices() throws IOException, ParseException {
+
+    int numOfInvestmentTrustLoaded = 0;
+    int investmentTrustCount = 0;
+
+    List<InvestmentTrustMapping> investmentTrustMappings = investmentTrustMappingsRepository
+        .findAllDistinct(new Sort(Sort.Direction.DESC, "sedol"));
+
+    for (InvestmentTrustMapping investmentTrustMapping : investmentTrustMappings) {
+
+      investmentTrustCount++;
+      logger.info("Investment Trust {}, Sedol {}.", investmentTrustCount,
+          investmentTrustMapping.getSedol());
+
+      if (investmentTrustMapping.getInceptionDate() == null) {
+        logger.info("No inception date for Sedol: {} {} {} hence skipped!", investmentTrustMapping.getSedol(),
+            investmentTrustMapping.getIsin(), investmentTrustMapping.getFtSymbol());
+        continue;
+      }
+
+      logger.info("Starting download of historical prices for: {}, {}, {}, {}", investmentTrustMapping.getSedol(),
+          investmentTrustMapping.getIsin(), investmentTrustMapping.getInceptionLocalDate(),
+          investmentTrustMapping.getFtSymbol());
+
+      numOfInvestmentTrustLoaded += updateInvestmentTrustHistoryPrices(investmentTrustMapping.getSedol(),
+          investmentTrustMapping.getIsin(), investmentTrustMapping.getInceptionLocalDate(),
+          investmentTrustMapping.getFtSymbol());
+      logger.info("Download completed for: {}", investmentTrustMapping.getSedol());
+    }
+
+    logger.info("*****Investment Trusts History Prices download for {} investment trusts.", numOfInvestmentTrustLoaded);
+  }
+
+  private int updateInvestmentTrustHistoryPrices(String sedol, String isin, String inceptionDate,
+                                                 String ftSymbol) throws IOException, ParseException {
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+    ObjectMapper mapper = JsonUtils.getMAPPER();
+    JsonFactory factory = mapper.getFactory();
+
+    boolean updateInceptionDateFormat = false;
+
+    boolean pricesSaved = false;
+
+    if (inceptionDate == null || ftSymbol == null) {
+
+      MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+      map.add("query", isin);
+
+      HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+
+      ResponseEntity<String> ftCompanyLookupResponse = restTemplate.
+          postForEntity("https://markets.ft.com/data/searchapi/fullsitesearch", request,
+              String.class);
+
+      JsonParser ftCompanyLookupParser = factory.createParser(ftCompanyLookupResponse.getBody());
+      JsonNode ftCompanyLookupJnode = mapper.readTree(ftCompanyLookupParser);
+
+      JsonNode securities = ftCompanyLookupJnode.get("data").get("security");
+      String investmentTrustUrl = "";
+      String ftStockSymbol = "";
+      for (JsonNode security : securities) {
+        if (security.get("url").textValue().contains("investment-trust")) {
+          investmentTrustUrl = security.get("url").textValue();
+          ftStockSymbol = investmentTrustUrl.substring(investmentTrustUrl.indexOf("=")+1);
+          logger.info("Found Investment Trust {}: {}", sedol, investmentTrustUrl);
+        }
+      }
+
+      if (investmentTrustUrl.isEmpty()) {
+        logger.info("Investment Trust not found on FT!: {}", sedol);
+        return 0;
+      }
+
+      //now get the inception date and ftsymbol.
+      Document ftHistoricDoc = Jsoup.connect("https://markets.ft.com/data/investment-trust/tearsheet/historical?s=" +
+          ftStockSymbol).timeout(0).get();
+      String ftHistoricalPricesAppElement = ftHistoricDoc.select("div[data-module-name='HistoricalPricesApp']")
+          .attr("data-mod-config");
+      JsonParser ftHistoricalPricesAppElementParser = factory.createParser(ftHistoricalPricesAppElement);
+      JsonNode ftHistoricalPricesAppJnode = mapper.readTree(ftHistoricalPricesAppElementParser);
+
+      if (ftSymbol == null) {
+        try {
+          ftSymbol = ftHistoricalPricesAppJnode.get("symbol").textValue();
+        } catch (NullPointerException npe) {
+          logger.error("ftSymbol NOT FOUND!");
+          return 0;
+        }
+
+        if (investmentTrustMappingsRepository
+            .updateFtSymbol(sedol, ftSymbol, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+          logger.info("FT Symbol for sedol {}: {} updated.", sedol, ftSymbol);
+        }
+      }
+
+      // only update with FT inceptionDate if it is null. HL ones are more accurate.
+      if (inceptionDate == null) {
+        String inceptionISODate = null;
+
+        try {
+          inceptionISODate = ftHistoricalPricesAppJnode.get("inception").textValue();
+        } catch (NullPointerException npe) {
+          logger.error("Can't find Inception Date, hence will try Launch Date.");
+        }
+
+        if (inceptionISODate != null) {
+          inceptionDate = DateUtils.getDateByIsoDate(inceptionISODate, DateUtils.STANDARD_FORMAT);
+
+          if (investmentTrustMappingsRepository
+              .updateInceptionDate(sedol, inceptionDate, DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+            logger.info("Inception date for sedol {}: {} updated.", sedol, inceptionDate);
+          }
+
+          inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
+        } else {
+          logger.info("No inceptionDate, hence skipped.");
+          return 0;
+        }
+      } else {
+        updateInceptionDateFormat = true;
+      }
+    } else {
+      updateInceptionDateFormat = true;
+    }
+
+    if (updateInceptionDateFormat) {
+      inceptionDate = DateUtils.getDatefromFormat(inceptionDate, DateUtils.STANDARD_FORMAT, DateUtils.FT_FORMAT);
+    }
+
+    logger.info("ISIN {}, inception: {}, symbol: {}", isin, inceptionDate, ftSymbol);
+
+    //now get the historical prices year by year
+
+    //check the last date it is in the database
+    String startDate;
+    List<InvestmentTrustHistoryPrice> fundHistoryPrices = investmentTrustHistoryPricesRepository
+        .getLastUpdated(sedol, isin, ftSymbol);
+    if (fundHistoryPrices.size() > 0) {
+      startDate = DateUtils.getNextWorkingDate(fundHistoryPrices.get(0).getCobDate(),
+          DateUtils.FT_FORMAT);
+
+      logger.info("Fund history prices already updated. Will update from: {}", startDate);
+    } else {
+      startDate = inceptionDate;
+      logger.info("Fund prices will updated from: {}", startDate);
+    }
+
+    String endDate = DateUtils.getEndDateForHistoricalPrices(startDate, DateUtils.FT_FORMAT);
+
+    while (DateUtils.isLessThanOrEqualToDate(startDate, DateUtils.getTodayDate(DateUtils.FT_FORMAT), DateUtils.FT_FORMAT)) {
+      logger.info("Loading Historical Prices from {} to {}", startDate, endDate);
+
+      String historicalPriceAppURL = "https://markets.ft.com/data/equities/ajax/get-historical-prices?startDate=" +
+          URLEncoder.encode(startDate, "UTF-8") + "&endDate=" + URLEncoder.encode(endDate, "UTF-8") + "&symbol=" + ftSymbol;
+      logger.info("Loading Historical Prices using URL: {}", historicalPriceAppURL);
+
+      MultiValueMap<String, String> historicalPriceAppMap = new LinkedMultiValueMap<>();
+      historicalPriceAppMap.add("startDate", startDate);
+      historicalPriceAppMap.add("endDate", endDate);
+      historicalPriceAppMap.add("symbol", ftSymbol);
+
+      HttpEntity<MultiValueMap<String, String>> historicalPriceAppRequest = new
+          HttpEntity<>(historicalPriceAppMap, headers);
+
+      ResponseEntity<String> ftHistoricalPriceAppResponse = restTemplate
+          .postForEntity("https://markets.ft.com/data/equities/ajax/get-historical-prices",
+              historicalPriceAppRequest, String.class);
+      JsonParser ftHistoricalPriceParser = factory.createParser(ftHistoricalPriceAppResponse.getBody());
+      JsonNode ftHistoricalPriceJNode = mapper.readTree(ftHistoricalPriceParser);
+
+      Document ftHistoricalPriceDoc = Jsoup.parse("<html><body><table>" + ftHistoricalPriceJNode.get("html").asText() +
+          "</table></body></html>");
+      Elements ftHistoricalPriceElements = ftHistoricalPriceDoc.select("tr");
+
+      for (Element ftHistoricalPriceElement : ftHistoricalPriceElements) {
+        String cobDate = DateUtils.getDatefromFormat(ftHistoricalPriceElement.
+                select("span[class='mod-ui-hide-small-below']").first().text(), "EEEE, MMMM d, y",
+            DateUtils.STANDARD_FORMAT);
+
+        Double price_open = Double.valueOf(ftHistoricalPriceElement.select("td").get(1).text().replace(",", ""));
+        Double price_high = Double.valueOf(ftHistoricalPriceElement.select("td").get(2).text().replace(",", ""));
+        Double price_low = Double.valueOf(ftHistoricalPriceElement.select("td").get(3).text().replace(",", ""));
+        Double price_close = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text().replace(",", ""));
+        Double volume = Double.valueOf(ftHistoricalPriceElement.select("td").get(5).text().replace(",", ""));
+
+        logger.info("Date: {}, Price= Open: {}, High: {}, Low: {}, Close: {}, Volume: {}", cobDate,
+            price_open, price_high, price_low, price_close, volume);
+
+        InvestmentTrustHistoryPrice investmentTrustHistoryPrice = new InvestmentTrustHistoryPrice(sedol,
+            isin, ftSymbol, price_open, price_high, price_low, price_close, volume, cobDate);
+        investmentTrustHistoryPricesRepository.save(investmentTrustHistoryPrice);
+        pricesSaved = true;
+      }
+
+      startDate = DateUtils.addDayToDate(endDate, DateUtils.FT_FORMAT, 1);
+      endDate = DateUtils.getEndDateForHistoricalPrices(endDate, DateUtils.FT_FORMAT);
+    }
+
+    return (pricesSaved) ? 1 : 0;
   }
 
   @Bean

@@ -14,7 +14,6 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Projections;
 import inc.deszo.fuzzywinner.fund.model.Fund;
-import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
 import inc.deszo.fuzzywinner.utils.CsvUtils;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
@@ -42,9 +41,9 @@ import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.orderBy;
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
-public class FundRepositoryImpl implements FundRepositoryCustom {
+public class FundsRepositoryImpl implements FundsRepositoryCustom {
 
-  private static final Logger logger = LoggerFactory.getLogger(FundRepositoryImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(FundsRepositoryImpl.class);
 
   @Value("${spring.data.mongodb.host}")
   private String host;
@@ -61,7 +60,7 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
   @Override
   public List<String> getDistinctSedol() {
 
-    return (List<String>) mongoTemplate.getCollection("fund").distinct("sedol");
+    return (List<String>) mongoTemplate.getCollection("funds").distinct("sedol");
   }
 
   @Override
@@ -85,7 +84,7 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
   @Override
   public List<Date> getDistinctUpdated() {
 
-    return (List<Date>) mongoTemplate.getCollection("fund").distinct("updated");
+    return (List<Date>) mongoTemplate.getCollection("funds").distinct("updated");
   }
 
   @Override
@@ -108,12 +107,12 @@ public class FundRepositoryImpl implements FundRepositoryCustom {
 
     MongoClient client = new MongoClient(new ServerAddress(host, port));
     MongoDatabase db = client.getDatabase(database);
-    MongoCollection<Document> collection = db.getCollection("fund");
+    MongoCollection<Document> collection = db.getCollection("funds");
 
     AggregateIterable<Document> result = collection
         .aggregate(Arrays.asList(
             Aggregates.sort(orderBy(ascending("key"))),
-            Aggregates.lookup("fundperformance", "key", "key", "perf"),
+            Aggregates.lookup("fundperformances", "key", "key", "perf"),
             Aggregates.unwind("$perf"),
             Aggregates.project(
                 Projections.fields(

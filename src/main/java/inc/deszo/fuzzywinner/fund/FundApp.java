@@ -2,6 +2,7 @@ package inc.deszo.fuzzywinner.fund;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.MongoClientOptions;
@@ -10,9 +11,8 @@ import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
 import inc.deszo.fuzzywinner.fund.model.FundMapping;
 import inc.deszo.fuzzywinner.fund.repository.FundHistoryPricesRepository;
 import inc.deszo.fuzzywinner.fund.repository.FundMappingsRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundPerformanceRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundRepository;
-import inc.deszo.fuzzywinner.shared.model.HistoryPrice;
+import inc.deszo.fuzzywinner.fund.repository.FundPerformancesRepository;
+import inc.deszo.fuzzywinner.fund.repository.FundsRepository;
 import inc.deszo.fuzzywinner.shared.model.Type;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
@@ -62,7 +62,7 @@ public class FundApp implements CommandLineRunner {
   private RestTemplate restTemplate;
 
   @Autowired
-  private FundRepository fundRepository;
+  private FundsRepository fundsRepository;
 
   @Autowired
   private FundMappingsRepository fundMappingsRepository;
@@ -71,7 +71,7 @@ public class FundApp implements CommandLineRunner {
   private FundHistoryPricesRepository fundHistoryPricesRepository;
 
   @Autowired
-  private FundPerformanceRepository fundPerformanceRepository;
+  private FundPerformancesRepository fundPerformancesRepository;
 
   @Autowired
   private MongoTemplate mongoTemplate;
@@ -95,8 +95,6 @@ public class FundApp implements CommandLineRunner {
     // set updateFundInfo to true very first time repo is populated
     loadFunds(true, false, true);
 
-    updateFundsMappings(true);
-
     updateFundsHistoryPrices(false);
 
     runStatistics(DateUtils.getLocalDate("12/06/2017", DateUtils.STANDARD_FORMAT));
@@ -108,10 +106,10 @@ public class FundApp implements CommandLineRunner {
 
   private void setup(boolean deleteAll) {
     if (deleteAll) {
-      fundRepository.deleteAll();
+      fundsRepository.deleteAll();
       fundMappingsRepository.deleteAll();
       fundHistoryPricesRepository.deleteAll();
-      fundPerformanceRepository.deleteAll();
+      fundPerformancesRepository.deleteAll();
     }
   }
 
@@ -122,7 +120,7 @@ public class FundApp implements CommandLineRunner {
     int fundCount = 1;
 
     //Update fund keys
-    //logger.info("Number of funds key updated: {}.", fundRepository.updateKey());
+    //logger.info("Number of funds key updated: {}.", fundsRepository.updateKey());
 
     //Get list of companyIds
     Document doc = Jsoup.connect("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=218&lo=0&page=1&tab=prices").timeout(0).get();
@@ -156,24 +154,30 @@ public class FundApp implements CommandLineRunner {
         if (arrNodeResults.isArray()) {
           for (final JsonNode objNode : arrNodeResults) {
 
+            Fund newFund;
             logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
-            Fund newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
-            newFund.setKey();
-            newFund.setUrl();
+            try {
+              newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
+              newFund.setKey();
+              newFund.setUrl();
+            } catch (JsonMappingException jme) {
+              logger.error("BOOM! {}", objNode.asText(), jme);
+              continue;
+            }
 
             logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
 
             String sedol = newFund.getSedol();
             String updated = newFund.getUpdatedLocalDateString();
 
-            Fund loadedFund = fundRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+            Fund loadedFund = fundsRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
             if (loadedFund == null) {
-              fundRepository.save(newFund);
+              fundsRepository.save(newFund);
               logger.info("Saved Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
               numOfFundsUpdated++;
             } else {
               if (reloadFund) {
-                fundRepository.updateFund(newFund);
+                fundsRepository.updateFund(newFund);
                 logger.info("Updated Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
               } else {
                 logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
@@ -212,12 +216,10 @@ public class FundApp implements CommandLineRunner {
     logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
   }
 
-  private void updateFundsMappings(boolean onlyNewOnes) throws ParseException {
+  private void updateFundsMappings(boolean onlyNewOnes, List<String> sedols) throws ParseException {
 
     int numOfISINLoaded = 0;
     int fundCount = 0;
-
-    List<String> sedols = (List<String>) fundRepository.getDistinctSedol();
 
     if (onlyNewOnes) {
       for (String sedol : sedols) {
@@ -492,7 +494,7 @@ public class FundApp implements CommandLineRunner {
         logger.info("Date: {}, Price: {}", cobDate, price);
 
         FundHistoryPrice fundHistoryPrice = new FundHistoryPrice(sedol, isin, ftSymbol,
-            price, cobDate, Type.FUND);
+            price, cobDate);
         fundHistoryPricesRepository.save(fundHistoryPrice);
         pricesSaved = true;
       }
@@ -507,25 +509,25 @@ public class FundApp implements CommandLineRunner {
   private void runStatistics(LocalDate cobDate) throws ParseException {
 
     //calculate fund performance
-    fundPerformanceRepository.calculate(cobDate, false);
+    fundPerformancesRepository.calculate(cobDate, false);
 
     // all funds with yield more than 5% sort by yield and sedol
-    AggregationResults<Fund> fundResults = fundRepository.getFundWithYieldMoreThan(5.0);
+    AggregationResults<Fund> fundResults = fundsRepository.getFundWithYieldMoreThan(5.0);
     fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
         fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
     // all plus funds with yield more than 4% sort by yield and sedol
-    AggregationResults<Fund> plusFundResults = fundRepository.getPlusFundWithYieldMoreThan(4.0);
+    AggregationResults<Fund> plusFundResults = fundsRepository.getPlusFundWithYieldMoreThan(4.0);
     plusFundResults.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
         fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
 
     // all updated dates
-    List<Date> updatedDates = fundRepository.getDistinctUpdated();
+    List<Date> updatedDates = fundsRepository.getDistinctUpdated();
     updatedDates.forEach((date) -> logger.info("Updated Date {}.", DateUtils.getDate(date, DateUtils.STANDARD_FORMAT)));
   }
 
   private void genFundReports() throws IOException {
-    fundRepository.genCsvFundReport();
+    fundsRepository.genCsvFundReport();
   }
 
   @Bean

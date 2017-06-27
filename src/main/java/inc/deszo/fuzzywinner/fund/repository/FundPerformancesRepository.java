@@ -7,7 +7,7 @@ import org.springframework.data.mongodb.repository.Query;
 import java.util.Date;
 import java.util.List;
 
-public interface FundPerformanceRepository extends MongoRepository<FundPerformance, Long>, FundPerformanceRepositoryCustom {
+public interface FundPerformancesRepository extends MongoRepository<FundPerformance, Long>, FundPerformancesRepositoryCustom {
 
   @Query("{sedol: '?0', isin: '?1', ftSymbol: '?2', cobDate: ?3}")
   List<FundPerformance> findFundPeformance(String sedol, String isin, String ftSymbol, Date cobDate);

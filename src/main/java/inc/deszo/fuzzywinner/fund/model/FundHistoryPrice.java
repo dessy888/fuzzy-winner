@@ -28,8 +28,8 @@ public class FundHistoryPrice extends HistoryPrice {
   }
 
   public FundHistoryPrice(String sedol, String isin, String ftSymbol, double price_close,
-                          String cobDate, Type type) throws ParseException {
-    super(sedol, isin, ftSymbol, cobDate, type);
+                          String cobDate) throws ParseException {
+    super(sedol, isin, ftSymbol, cobDate, Type.FUND);
     this.price_close = price_close;
   }
 

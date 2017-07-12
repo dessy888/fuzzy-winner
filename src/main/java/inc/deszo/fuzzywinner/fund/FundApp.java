@@ -50,9 +50,8 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.ParseException;
 import java.time.LocalDate;
-import java.util.Date;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
+import java.util.concurrent.*;
 
 @SpringBootApplication
 public class FundApp implements CommandLineRunner {
@@ -93,9 +92,9 @@ public class FundApp implements CommandLineRunner {
     setup(false);
 
     // set updateFundInfo to true very first time repo is populated
-    loadFunds(true, false, true);
+    loadFunds(true, false, true, 10);
 
-    updateFundsHistoryPrices(false);
+    updateFundsHistoryPrices(false, 10);
 
     runStatistics(DateUtils.getLocalDate("12/06/2017", DateUtils.STANDARD_FORMAT));
 
@@ -113,11 +112,10 @@ public class FundApp implements CommandLineRunner {
     }
   }
 
-  private void loadFunds(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund) throws IOException, ParseException {
+  private void loadFunds(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund, int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
 
-    int numOfFundsUpdated = 0;
     int numOfFundCompany = 0;
-    int fundCount = 1;
+    int numOfFundsUpdated = 0;
 
     //Update fund keys
     //logger.info("Number of funds key updated: {}.", fundsRepository.updateKey());
@@ -132,87 +130,129 @@ public class FundApp implements CommandLineRunner {
     //Element content = doc.getElementById("search-sector");
     //Elements options = content.getElementsByTag("option");
 
+    ExecutorService executor = Executors.newFixedThreadPool(numOfThreads);
+    Set<Future<Integer>> set = new HashSet<Future<Integer>>();
+
     for (Element option : options) {
 
       if (option.val().equalsIgnoreCase(""))
         continue;
 
-      logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
+      Callable<Integer> longRunningTask = () -> {
+        int updated = 0;
 
-      int page = 1;
-      int totalPages;
-      String companyId = option.val();
+        try {
 
-      do {
+          updated = loadFund(reloadFund, updateFundMappings, updatePlusFund, option);
 
-        String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=" + page + "&SQ_DESIGN_NAME=json", null, String.class);
-        logger.debug(result);
-
-        //Get results from page
-        final JsonNode arrNodeResults = JsonUtils.getMAPPER().readTree(result).get("results");
-        if (arrNodeResults.isArray()) {
-          for (final JsonNode objNode : arrNodeResults) {
-
-            Fund newFund;
-            logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
-            try {
-              newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
-              newFund.setKey();
-              newFund.setUrl();
-            } catch (JsonMappingException jme) {
-              logger.error("BOOM! {}", objNode.asText(), jme);
-              continue;
-            }
-
-            logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
-
-            String sedol = newFund.getSedol();
-            String updated = newFund.getUpdatedLocalDateString();
-
-            Fund loadedFund = fundsRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
-            if (loadedFund == null) {
-              fundsRepository.save(newFund);
-              logger.info("Saved Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
-              numOfFundsUpdated++;
-            } else {
-              if (reloadFund) {
-                fundsRepository.updateFund(newFund);
-                logger.info("Updated Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
-              } else {
-                logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
-              }
-            }
-
-            if (updatePlusFund) {
-              //update plusFund
-              if (fundMappingsRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
-                logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
-              } else {
-                logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
-              }
-            }
-
-            if (updateFundMappings) {
-              //update inceptionDate and isin
-              updateFundMapping(sedol);
-            }
-            fundCount++;
-          }
-          logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
+        } catch (IOException | ParseException e) {
+          logger.error("BOOM!", e);
         }
 
-        //Check if there are more pages
-        JsonNode arrNodePages = JsonUtils.getMAPPER().readTree(result).get("pages");
-        totalPages = arrNodePages.asInt();
+        return updated;
+      };
 
-        page++;
+      synchronized (this) {
+        numOfFundCompany++;
+      }
 
-      } while (page <= totalPages);
+      Future<Integer> future = executor.submit(longRunningTask);
+      set.add(future);
+    }
 
-      numOfFundCompany++;
+    executor.shutdown();
+    //noinspection StatementWithEmptyBody
+    while (!executor.isTerminated()) {
+    }
+
+    for (Future<Integer> future : set) {
+      numOfFundsUpdated += future.get();
     }
 
     logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
+  }
+
+  private int loadFund(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund, Element option) throws IOException, ParseException {
+
+    int numOfFundsUpdated = 0;
+    int fundCount = 1;
+
+    logger.info("Loading Funds for companyIds: {}, {}", option.val(), option.text());
+
+    int page = 1;
+    int totalPages;
+    String companyId = option.val();
+
+    do {
+
+      String result = restTemplate.postForObject("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results?companyid=" + companyId + "&lo=0&page=" + page + "&SQ_DESIGN_NAME=json", null, String.class);
+      logger.debug(result);
+
+      //Get results from page
+      final JsonNode arrNodeResults = JsonUtils.getMAPPER().readTree(result).get("results");
+      if (arrNodeResults.isArray()) {
+        for (final JsonNode objNode : arrNodeResults) {
+
+          Fund newFund;
+          logger.debug("Loading Fund({}): {}", fundCount, objNode.toString());
+          try {
+            newFund = JsonUtils.getMAPPER().treeToValue(objNode, Fund.class);
+            newFund.setKey();
+            newFund.setUrl();
+          } catch (JsonMappingException jme) {
+            logger.error("BOOM! {}", objNode.asText(), jme);
+            continue;
+          }
+
+          logger.info("Loading Fund({}): {} {}", fundCount, newFund.getSedol(), newFund.getName());
+
+          String sedol = newFund.getSedol();
+          String updated = newFund.getUpdatedLocalDateString();
+
+          Fund loadedFund = fundsRepository.findFundBySedolUpdated(sedol, DateUtils.getDate(updated, DateUtils.STANDARD_FORMAT));
+          if (loadedFund == null) {
+            fundsRepository.save(newFund);
+            logger.info("Saved Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
+            numOfFundsUpdated++;
+          } else {
+            if (reloadFund) {
+              fundsRepository.updateFund(newFund);
+              logger.info("Updated Fund {} {} for {}.", newFund.getSedol(), newFund.getName(), newFund.getUpdatedLocalDateString());
+              numOfFundsUpdated++;
+            } else {
+              logger.info("Fund {} {} already updated on {}.", loadedFund.getSedol(), loadedFund.getName(), loadedFund.getUpdatedLocalDateString());
+            }
+          }
+
+          if (updatePlusFund) {
+            //update plusFund
+            if (fundMappingsRepository.updatePlusFund(sedol, newFund.getPlusFund(), DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT)) == 1) {
+              logger.info("PlusFund for sedol {}: {} updated.", sedol, newFund.getPlusFund());
+            } else {
+              logger.info("PlusFund for sedol {}: {} NOT updated.", sedol, newFund.getPlusFund());
+            }
+          }
+
+          if (updateFundMappings) {
+            //update inceptionDate and isin
+            updateFundMapping(sedol);
+          }
+
+          fundCount++;
+
+        }
+        logger.info("Funds processed for companyId: {}, {}", option.val(), option.text());
+      }
+
+      //Check if there are more pages
+      JsonNode arrNodePages = JsonUtils.getMAPPER().readTree(result).get("pages");
+      totalPages = arrNodePages.asInt();
+
+      page++;
+
+    } while (page <= totalPages);
+
+    return numOfFundsUpdated;
   }
 
   private void updateFundsMappings(boolean onlyNewOnes, List<String> sedols) throws ParseException {
@@ -308,10 +348,13 @@ public class FundApp implements CommandLineRunner {
     return success;
   }
 
-  private void updateFundsHistoryPrices(boolean onlyPlusFunds) throws IOException, ParseException {
+  private void updateFundsHistoryPrices(boolean onlyPlusFunds, int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
 
     int numOfFundsLoaded = 0;
     int fundCount = 0;
+
+    ExecutorService executor = Executors.newFixedThreadPool(numOfThreads);
+    Set<Future<Integer>> set = new HashSet<Future<Integer>>();
 
     List<FundMapping> fundMappings;
 
@@ -335,9 +378,35 @@ public class FundApp implements CommandLineRunner {
       logger.info("Starting download of historical prices for: {}, {}, {}, {}, {}", fundMapping.getSedol(),
           fundMapping.getIsin(), fundMapping.getInceptionLocalDate(), fundMapping.getFtSymbol(), fundMapping.getPlusFund());
 
-      numOfFundsLoaded += updateFundHistoryPrices(fundMapping.getSedol(), fundMapping.getIsin(),
+
+      Callable<Integer> longRunningTask = () -> {
+        int updatedCount = 0;
+
+        try {
+
+          updatedCount += updateFundHistoryPrices(fundMapping.getSedol(), fundMapping.getIsin(),
           fundMapping.getInceptionLocalDate(), fundMapping.getFtSymbol());
-      logger.info("Download completed for: {}", fundMapping.getSedol());
+
+          logger.info("Download completed for: {}", fundMapping.getSedol());
+
+        } catch (IOException | ParseException e) {
+          logger.error("BOOM!", e);
+        }
+
+        return updatedCount;
+      };
+
+      Future<Integer> future = executor.submit(longRunningTask);
+      set.add(future);
+    }
+
+    executor.shutdown();
+    //noinspection StatementWithEmptyBody
+    while (!executor.isTerminated()) {
+    }
+
+    for (Future<Integer> future : set) {
+      numOfFundsLoaded += future.get();
     }
 
     logger.info("*****Fund History Prices download for {} funds.", numOfFundsLoaded);

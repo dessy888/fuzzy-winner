@@ -38,8 +38,10 @@ public class Fund {
   @JsonProperty("price_sell")
   private double priceSell;
 
+  @JsonProperty("price_buy")
   private double priceBuy;
 
+  @JsonProperty("price_change")
   private double priceChange;
 
   private double yield;
@@ -203,7 +205,6 @@ public class Fund {
     return priceBuy;
   }
 
-  @JsonProperty("price_buy")
   public void setPriceBuy(double priceBuy) {
     this.priceBuy = priceBuy;
   }
@@ -212,7 +213,6 @@ public class Fund {
     return priceChange;
   }
 
-  @JsonProperty("price_change")
   public void setPriceChange(double priceChange) {
     this.priceChange = priceChange;
   }

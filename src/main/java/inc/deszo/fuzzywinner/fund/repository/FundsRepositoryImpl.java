@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteResult;
@@ -84,7 +85,12 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
   @Override
   public List<Date> getDistinctUpdated() {
 
-    return (List<Date>) mongoTemplate.getCollection("funds").distinct("updated");
+    List<Date> dates = mongoTemplate.getCollection("funds")
+        .distinct("updated");
+
+    dates.sort(Date::compareTo);
+
+    return dates;
   }
 
   @Override
@@ -108,6 +114,9 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
     MongoClient client = new MongoClient(new ServerAddress(host, port));
     MongoDatabase db = client.getDatabase(database);
     MongoCollection<Document> collection = db.getCollection("funds");
+
+    Document projectStage = Document.parse(
+          "{ $dateToString: { format: '%d/%m/%Y', date: '$perf.cobDate' } }");
 
     AggregateIterable<Document> result = collection
         .aggregate(Arrays.asList(
@@ -178,6 +187,7 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
                     Projections.computed("19Y","$perf._19Y"),
                     Projections.computed("20Y","$perf._20Y"),
                     Projections.computed("ALL","$perf._ALL"),
+                    Projections.computed("cobDate", projectStage),
                     Projections.include("perf12m"),
                     Projections.include("perf12t24m"),
                     Projections.include("perf24t36m"),

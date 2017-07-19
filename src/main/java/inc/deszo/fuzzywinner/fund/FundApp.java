@@ -96,7 +96,7 @@ public class FundApp implements CommandLineRunner {
 
     updateFundsHistoryPrices(false, 10);
 
-    runStatistics(DateUtils.getLocalDate("12/06/2017", DateUtils.STANDARD_FORMAT));
+    runStatistics(null, false, false);
 
     genFundReports();
 
@@ -574,10 +574,10 @@ public class FundApp implements CommandLineRunner {
     return (pricesSaved) ? 1 : 0;
   }
 
-  private void runStatistics(LocalDate cobDate) throws ParseException {
+  private void runStatistics(LocalDate cobDate, boolean plusFundOnly, boolean overrideFundPerformance) throws ParseException {
 
     //calculate fund performance
-    fundPerformancesRepository.calculate(cobDate, false);
+    fundPerformancesRepository.calculate(cobDate, plusFundOnly, overrideFundPerformance);
 
     // all funds with yield more than 5% sort by yield and sedol
     AggregationResults<Fund> fundResults = fundsRepository.getFundWithYieldMoreThan(5.0);

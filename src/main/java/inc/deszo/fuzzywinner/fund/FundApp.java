@@ -96,9 +96,16 @@ public class FundApp implements CommandLineRunner {
 
     updateFundsHistoryPrices(false, 10);
 
-    runStatistics(null, false, false);
+    runStatistics(null, false, true);
 
-    genFundReports();
+    /*
+     // started downloading from HL on 9th Jun
+     for (int i=0; i<15; i++) {
+      runStatistics(DateUtils.getLocalDate(DateUtils.addDayToDate("09/06/2017", DateUtils.STANDARD_FORMAT, i),
+          DateUtils.STANDARD_FORMAT), false, true);
+    }*/
+
+    genFundReports("2017-06-09");
 
     SoundUtils.playSound();
   }
@@ -579,7 +586,7 @@ public class FundApp implements CommandLineRunner {
     //calculate fund performance
     fundPerformancesRepository.calculate(cobDate, plusFundOnly, overrideFundPerformance);
 
-    // all funds with yield more than 5% sort by yield and sedol
+    /*// all funds with yield more than 5% sort by yield and sedol
     AggregationResults<Fund> fundResults = fundsRepository.getFundWithYieldMoreThan(5.0);
     fundResults.forEach((fund) -> logger.info("Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
         fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
@@ -588,14 +595,14 @@ public class FundApp implements CommandLineRunner {
     AggregationResults<Fund> plusFundResults = fundsRepository.getPlusFundWithYieldMoreThan(4.0);
     plusFundResults.forEach((fund) -> logger.info("Plus Funds {} {} {}M {}p {}: {}%", fund.getSedol(), fund.getName(),
         fund.getFundSize(), fund.getPriceSell(), fund.getUpdatedLocalDateString(), fund.getYield()));
-
+*/
     // all updated dates
     List<Date> updatedDates = fundsRepository.getDistinctUpdated();
     updatedDates.forEach((date) -> logger.info("Updated Date {}.", DateUtils.getDate(date, DateUtils.STANDARD_FORMAT)));
   }
 
-  private void genFundReports() throws IOException {
-    fundsRepository.genCsvFundReport();
+  private void genFundReports(String date) throws IOException {
+    fundsRepository.genCsvFundReport(date);
   }
 
   @Bean

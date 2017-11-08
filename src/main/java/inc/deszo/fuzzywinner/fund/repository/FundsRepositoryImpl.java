@@ -13,6 +13,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Projections;
 import inc.deszo.fuzzywinner.fund.model.Fund;
 import inc.deszo.fuzzywinner.utils.CsvUtils;
@@ -36,6 +37,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.time.Instant;
 import java.util.*;
 
 import static com.mongodb.client.model.Sorts.ascending;
@@ -105,7 +107,7 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
   }
 
   @Override
-  public void genCsvFundReport() throws IOException {
+  public void genCsvFundReport(String date) throws IOException {
 
     // performance report
     ObjectMapper mapper = JsonUtils.getMAPPER();
@@ -118,8 +120,12 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
     Document projectStage = Document.parse(
           "{ $dateToString: { format: '%d/%m/%Y', date: '$perf.cobDate' } }");
 
+    Instant instant = Instant.parse(date + "T00:00:00Z");
+    Date timestamp = Date.from(instant);
+
     AggregateIterable<Document> result = collection
         .aggregate(Arrays.asList(
+            Aggregates.match(Filters.gt("updated", timestamp)),
             Aggregates.sort(orderBy(ascending("key"))),
             Aggregates.lookup("fundperformances", "key", "key", "perf"),
             Aggregates.unwind("$perf"),

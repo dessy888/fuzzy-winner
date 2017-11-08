@@ -19,7 +19,7 @@ public interface FundsRepositoryCustom {
 
   List<Fund> getLastUpdated(String sedol);
 
-  void genCsvFundReport() throws IOException;
+  void genCsvFundReport(String date) throws IOException;
 
   int updateKey();
 

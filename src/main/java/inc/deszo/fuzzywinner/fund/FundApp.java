@@ -9,10 +9,8 @@ import com.mongodb.MongoClientOptions;
 import inc.deszo.fuzzywinner.fund.model.Fund;
 import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
 import inc.deszo.fuzzywinner.fund.model.FundMapping;
-import inc.deszo.fuzzywinner.fund.repository.FundHistoryPricesRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundMappingsRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundPerformancesRepository;
-import inc.deszo.fuzzywinner.fund.repository.FundsRepository;
+import inc.deszo.fuzzywinner.fund.model.FundTopHolding;
+import inc.deszo.fuzzywinner.fund.repository.*;
 import inc.deszo.fuzzywinner.shared.model.Type;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
@@ -73,6 +71,9 @@ public class FundApp implements CommandLineRunner {
   private FundPerformancesRepository fundPerformancesRepository;
 
   @Autowired
+  private FundTopHoldingsRepository fundTopHoldingsRepository;
+
+  @Autowired
   private MongoTemplate mongoTemplate;
 
   public static void main(String[] args) {
@@ -92,7 +93,8 @@ public class FundApp implements CommandLineRunner {
     setup(false);
 
     // set updateFundInfo to true very first time repo is populated
-    loadFunds(true, false, true, 10);
+    loadFunds(true, false, false,
+        true, 10);
 
     updateFundsHistoryPrices(false, 10);
 
@@ -116,10 +118,11 @@ public class FundApp implements CommandLineRunner {
       fundMappingsRepository.deleteAll();
       fundHistoryPricesRepository.deleteAll();
       fundPerformancesRepository.deleteAll();
+      fundTopHoldingsRepository.deleteAll();
     }
   }
 
-  private void loadFunds(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund, int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
+  private void loadFunds(boolean reloadFund, boolean updateFundMappings, boolean updateFundTopHoldings, boolean updatePlusFund, int numOfThreads) throws IOException, ExecutionException, InterruptedException {
 
     int numOfFundCompany = 0;
     int numOfFundsUpdated = 0;
@@ -150,7 +153,7 @@ public class FundApp implements CommandLineRunner {
 
         try {
 
-          updated = loadFund(reloadFund, updateFundMappings, updatePlusFund, option);
+          updated = loadFund(reloadFund, updateFundMappings, updateFundTopHoldings, updatePlusFund, option);
 
         } catch (IOException | ParseException e) {
           logger.error("BOOM!", e);
@@ -179,7 +182,7 @@ public class FundApp implements CommandLineRunner {
     logger.info("*****Number of Fund Companies Loaded: {}, Number of Funds Updated: {}", numOfFundCompany, numOfFundsUpdated);
   }
 
-  private int loadFund(boolean reloadFund, boolean updateFundMappings, boolean updatePlusFund, Element option) throws IOException, ParseException {
+  private int loadFund(boolean reloadFund, boolean updateFundMappings, boolean updateFundTopHoldings, boolean updatePlusFund, Element option) throws IOException, ParseException {
 
     int numOfFundsUpdated = 0;
     int fundCount = 1;
@@ -243,6 +246,11 @@ public class FundApp implements CommandLineRunner {
           if (updateFundMappings) {
             //update inceptionDate and isin
             updateFundMapping(sedol);
+          }
+
+          if (updateFundTopHoldings) {
+            //update fund top holdings
+            updateFundsTopHoldings(sedol);
           }
 
           fundCount++;
@@ -355,7 +363,7 @@ public class FundApp implements CommandLineRunner {
     return success;
   }
 
-  private void updateFundsHistoryPrices(boolean onlyPlusFunds, int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
+  private void updateFundsHistoryPrices(boolean onlyPlusFunds, int numOfThreads) throws ExecutionException, InterruptedException {
 
     int numOfFundsLoaded = 0;
     int fundCount = 0;
@@ -579,6 +587,55 @@ public class FundApp implements CommandLineRunner {
     }
 
     return (pricesSaved) ? 1 : 0;
+  }
+
+  private boolean updateFundsTopHoldings(String sedol) throws ParseException {
+
+    boolean success = false;
+
+    logger.info("Loading Fund Top Holding using sedol: {}", sedol);
+
+    try {
+
+      // check if sedol top holdings have been updated today.
+      List<FundTopHolding> fundTopHoldings = fundTopHoldingsRepository.getFundTopHoldingsByDate(sedol,
+          DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT));
+
+      if (fundTopHoldings.isEmpty()) {
+
+        Document searchDoc = Jsoup.connect("http://www.hl.co.uk/funds/fund-discounts,-prices--and--factsheets/search-results/" + sedol).timeout(0).get();
+        Element topHoldingsElement = searchDoc.select("table[summary='Top 10 holdings']").first();
+        Elements holdings = topHoldingsElement.getElementsByTag("tr");
+
+        for (int i = 1; i < holdings.size(); i++) {
+
+          String security = holdings.get(i).select("td").get(0).text();
+          String weight = holdings.get(i).select("td").get(1).text();
+          String url = holdings.get(i).select("td").get(0).select("a").attr("href");
+
+          logger.debug("Sedol: {}, Position: {}, Security: {}, Weight: {}, URL: {}", sedol,
+              i, security, weight, url);
+
+          FundTopHolding newFundTopHolding = new FundTopHolding(sedol,
+              DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT), Type.FUND, String.valueOf(i),
+              security, weight, url);
+          fundTopHoldingsRepository.save(newFundTopHolding);
+          success = true;
+        }
+
+      } else {
+          logger.info("Fund Top Holding sedol: {} already updated.", sedol);
+          success = false;
+      }
+
+    } catch (HttpStatusException | NullPointerException e) {
+      logger.error("No market data for top holdings {}.", sedol);
+
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    return success;
   }
 
   private void runStatistics(LocalDate cobDate, boolean plusFundOnly, boolean overrideFundPerformance) throws ParseException {

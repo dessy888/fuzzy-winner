@@ -13,4 +13,6 @@ public interface FundHistoryPricesRepository extends
 
   @Query(value = "{type: 'FUND'}", fields = "{sedol: 1, isin: 1, ftSymbol: 1, inceptionDate: 1, type: 1}")
   List<FundMapping> findAllDistinct(Sort sort);
+
+  int deleteFundHistoryPricesBySedol(String sedol);
 }

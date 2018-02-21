@@ -51,7 +51,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.*;
 
-@SpringBootApplication
+//@SpringBootApplication
 public class InvestmentTrustApp implements CommandLineRunner {
 
   private static final Logger logger = LoggerFactory.getLogger(InvestmentTrustApp.class);
@@ -331,7 +331,7 @@ public class InvestmentTrustApp implements CommandLineRunner {
     logger.info(Thread.currentThread().getName() + "ended.");
   }
 
-  private void updateInvestmentTrustsHistoryPrices(int numOfThreads) throws IOException, ParseException, ExecutionException, InterruptedException {
+  private void updateInvestmentTrustsHistoryPrices(int numOfThreads) throws ExecutionException, InterruptedException {
 
     int numOfInvestmentTrustLoaded = 0;
     int investmentTrustCount = 0;

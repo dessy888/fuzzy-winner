@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
-import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteResult;
@@ -19,7 +18,6 @@ import inc.deszo.fuzzywinner.fund.model.Fund;
 import inc.deszo.fuzzywinner.utils.CsvUtils;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.JsonUtils;
-import javafx.util.Pair;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,7 +105,7 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
   }
 
   @Override
-  public void genCsvFundReport(String date) throws IOException {
+  public void genCsvFundReport(String startDate) throws IOException {
 
     // performance report
     ObjectMapper mapper = JsonUtils.getMAPPER();
@@ -120,7 +118,7 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
     Document projectStage = Document.parse(
           "{ $dateToString: { format: '%d/%m/%Y', date: '$perf.cobDate' } }");
 
-    Instant instant = Instant.parse(date + "T00:00:00Z");
+    Instant instant = Instant.parse(startDate + "T00:00:00Z");
     Date timestamp = Date.from(instant);
 
     AggregateIterable<Document> result = collection
@@ -210,7 +208,7 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
     while (cursor.hasNext()) {
       Document doc = cursor.next();
 
-      final JsonNode objNode = mapper.readTree(flattenDoc(doc).toJson());
+      final JsonNode objNode = mapper.readTree(JsonUtils.flattenDoc(doc).toJson());
       LinkedHashMap<String, String> map;
       map = mapper.readValue(objNode.toString(), new TypeReference<LinkedHashMap<String, String>>() {
       });
@@ -230,29 +228,6 @@ public class FundsRepositoryImpl implements FundsRepositoryCustom {
     CsvUtils.csvWriter(myArrList, writer);
 
     logger.info("CSV file generated ({} records): {}", recordCount, pathname);
-  }
-
-  public static Document flattenDoc( Document document ){
-
-    Document flattened = new Document();
-    Queue<Pair<String, Document>> queue = new ArrayDeque<>();
-    queue.add( new Pair<>( "", document ) );
-
-    while( !queue.isEmpty() ){
-      Pair<String, Document> pair = queue.poll();
-      String key = pair.getKey();
-      for( Map.Entry<String, Object> entry : pair.getValue().entrySet() ){
-        if( entry.getValue() instanceof Document ){
-          queue.add( new Pair<>( key + entry.getKey() + ".", ( Document ) entry.getValue() ) );
-
-        }else{
-          flattened.put( key + entry.getKey(), entry.getValue() );
-
-        }
-      }//end for
-    }
-
-    return flattened;
   }
 
   @Override

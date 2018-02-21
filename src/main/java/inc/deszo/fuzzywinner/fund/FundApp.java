@@ -6,10 +6,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.MongoClientOptions;
-import inc.deszo.fuzzywinner.fund.model.Fund;
-import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
-import inc.deszo.fuzzywinner.fund.model.FundMapping;
-import inc.deszo.fuzzywinner.fund.model.FundTopHolding;
+import inc.deszo.fuzzywinner.fund.model.*;
 import inc.deszo.fuzzywinner.fund.repository.*;
 import inc.deszo.fuzzywinner.shared.model.Type;
 import inc.deszo.fuzzywinner.utils.DateUtils;
@@ -93,21 +90,20 @@ public class FundApp implements CommandLineRunner {
     setup(false);
 
     // set updateFundInfo to true very first time repo is populated
-    loadFunds(true, false, false,
-        true, 10);
+    loadFunds(true, false, false, true, 10);
 
     updateFundsHistoryPrices(false, 10);
 
-    runStatistics(null, false, true);
+    runStatistics(DateUtils.getTodayDate(), false, true);
 
     /*
-     // started downloading from HL on 9th Jun
-     for (int i=0; i<15; i++) {
-      runStatistics(DateUtils.getLocalDate(DateUtils.addDayToDate("09/06/2017", DateUtils.STANDARD_FORMAT, i),
-          DateUtils.STANDARD_FORMAT), false, true);
-    }*/
+    rerunStatistics("15/12/2017", "11/02/2018", false, false);
+    */
 
-    genFundReports("2017-06-09");
+    repairStatistics("_ALL", -95.0);
+    repairStatistics("_1D", -99.0);
+
+    genFundReports("2017-06-01");
 
     SoundUtils.playSound();
   }
@@ -574,7 +570,7 @@ public class FundApp implements CommandLineRunner {
 
         Double price = Double.valueOf(ftHistoricalPriceElement.select("td").get(4).text().replace(",", ""));
 
-        logger.info("Date: {}, Price: {}", cobDate, price);
+        logger.debug("Date: {}, Price: {}", cobDate, price);
 
         FundHistoryPrice fundHistoryPrice = new FundHistoryPrice(sedol, isin, ftSymbol,
             price, cobDate);
@@ -584,6 +580,8 @@ public class FundApp implements CommandLineRunner {
 
       startDate = DateUtils.addDayToDate(endDate, DateUtils.FT_FORMAT, 1);
       endDate = DateUtils.getEndDateForHistoricalPrices(endDate, DateUtils.FT_FORMAT);
+
+      logger.info("Historical Prices from {} to {} loaded.", startDate, endDate);
     }
 
     return (pricesSaved) ? 1 : 0;
@@ -640,8 +638,12 @@ public class FundApp implements CommandLineRunner {
 
   private void runStatistics(LocalDate cobDate, boolean plusFundOnly, boolean overrideFundPerformance) throws ParseException {
 
-    //calculate fund performance
-    fundPerformancesRepository.calculate(cobDate, plusFundOnly, overrideFundPerformance);
+    //calculate fund performance if it is a business day
+    if (DateUtils.isWeekDay(cobDate)) {
+      fundPerformancesRepository.calculate(cobDate, plusFundOnly, overrideFundPerformance);
+    } else {
+      logger.info("Run Statistics for {} skipped, not Weekday.", cobDate);
+    }
 
     /*// all funds with yield more than 5% sort by yield and sedol
     AggregationResults<Fund> fundResults = fundsRepository.getFundWithYieldMoreThan(5.0);
@@ -658,8 +660,78 @@ public class FundApp implements CommandLineRunner {
     updatedDates.forEach((date) -> logger.info("Updated Date {}.", DateUtils.getDate(date, DateUtils.STANDARD_FORMAT)));
   }
 
-  private void genFundReports(String date) throws IOException {
-    fundsRepository.genCsvFundReport(date);
+  private void rerunStatistics(String startDate, String endDate, boolean plusFundOnly, boolean overrideFundPerformance) throws ParseException {
+
+    long days = DateUtils.diffBetTwoDates(endDate, startDate, DateUtils.STANDARD_FORMAT) + 1;
+
+    logger.info("Rerun Statistics for {} days from {} to {} started.", days, startDate, endDate);
+
+    for (int i=0; i<days; i++) {
+
+      String date = DateUtils.addDayToDate(startDate, DateUtils.STANDARD_FORMAT, i);
+
+      logger.info("Rerun Statistics for {}.", date);
+
+      runStatistics(DateUtils.getLocalDate(date, DateUtils.STANDARD_FORMAT), plusFundOnly, overrideFundPerformance);
+    }
+
+    logger.info("Rerun Statistics for {} days from {} to {} ended.", days, startDate, endDate);
+  }
+
+  private void repairStatistics(String tenor, double performance) throws IOException, ParseException {
+
+    int deletedCount;
+    int updatedCount;
+    int totalRepaired = 0;
+
+    logger.info("Repair Statistics by {} tenor where performance is less than {}%.", tenor, performance);
+
+    AggregationResults<FundPerformance> fundPerformances = fundPerformancesRepository.getSedolByTenorPerformance(tenor, performance);
+
+    for (FundPerformance fundPerformance : fundPerformances) {
+
+      logger.info("Fund sedol: {}", fundPerformance.getSedol());
+
+      // remove all history prices
+      deletedCount = fundHistoryPricesRepository.deleteFundHistoryPricesBySedol(fundPerformance.getSedol());
+      logger.info("Fund sedol: {}, {} History Prices deleted.", fundPerformance.getSedol(), deletedCount);
+
+      // remove all performance cals
+      deletedCount = fundPerformancesRepository.deleteFundPerformanceBySedol(fundPerformance.getSedol());
+      logger.info("Fund sedol: {}, {} Fund Performances deleted.", fundPerformance.getSedol(), deletedCount);
+
+      // redownload history prices
+      FundMapping fundMapping = fundMappingsRepository.findFirstBySedol(fundPerformance.getSedol());
+      updatedCount = updateFundHistoryPrices(fundMapping.getSedol(), fundMapping.getIsin(),
+          fundMapping.getInceptionLocalDate(), fundMapping.getFtSymbol());
+      logger.info("Fund sedol: {}, {} Fund History downloaded.", fundPerformance.getSedol(), updatedCount);
+
+      // calculate perfomance cals again
+      String startDate = "01/06/2017";
+      String endDate = DateUtils.getTodayDate(DateUtils.STANDARD_FORMAT);
+      long days = DateUtils.diffBetTwoDates(endDate, startDate, DateUtils.STANDARD_FORMAT) + 1;
+      logger.info("Rerun Statistics for {} days from {} to {} started.", days, startDate, endDate);
+      List<FundHistoryPrice> fundHistoryPrices = fundHistoryPricesRepository.getSedol(fundPerformance.getSedol());
+      for (int i=0; i<days; i++) {
+        String date = DateUtils.addDayToDate(startDate, DateUtils.STANDARD_FORMAT, i);
+        logger.info("Rerun Statistics for {}.", date);
+
+        LocalDate cobDate = DateUtils.getLocalDate(date, DateUtils.STANDARD_FORMAT);
+        if (DateUtils.isWeekDay(cobDate)) {
+          fundPerformancesRepository.calculateFund(fundHistoryPrices.get(0), 0, cobDate, false, false);
+        }
+      }
+
+      totalRepaired++;
+    }
+
+    logger.info("Repair Statistics by {} tenor where performance is less than {}%, total Repaired: {}",
+        tenor, performance, totalRepaired);
+  }
+
+  private void genFundReports(String startDate) throws IOException {
+    fundsRepository.genCsvFundReport(startDate);
+    fundTopHoldingsRepository.genCsvTopHoldingsReport("2018-01-27");
   }
 
   @Bean

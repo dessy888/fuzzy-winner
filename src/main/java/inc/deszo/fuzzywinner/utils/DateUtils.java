@@ -2,11 +2,15 @@ package inc.deszo.fuzzywinner.utils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.Date;
+
+import static java.time.temporal.ChronoUnit.DAYS;
 
 public class DateUtils {
 
@@ -15,6 +19,13 @@ public class DateUtils {
   public static final String FT_FORMAT = "yyyy/MM/dd";
 
   public static final String HL_FORMAT = "dd MMM yyyy";
+
+  public static LocalDate getTodayDate() {
+
+    LocalDate now = LocalDate.now();
+
+    return now;
+  }
 
   public static String getTodayDate(String format) {
 
@@ -189,13 +200,24 @@ public class DateUtils {
     return nextDate;
   }
 
-  public static int diffBetTwoDates(String date1, String date2, String format) {
+  public static long diffBetTwoDates(String date1, String date2, String format) {
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
 
     LocalDate localDate1 = LocalDate.parse(date1, formatter);
     LocalDate localDate2 = LocalDate.parse(date2, formatter);
 
-    return localDate1.compareTo(localDate2);
+    return -Duration.between(localDate1.atTime(0, 0), localDate2.atTime(0, 0)).toDays();
+  }
+
+  public static boolean isWeekDay(LocalDate localdate) {
+
+    boolean isWeekDay;
+
+    if (localdate.getDayOfWeek() == DayOfWeek.SATURDAY) {
+      isWeekDay = false;
+    } else isWeekDay = localdate.getDayOfWeek() != DayOfWeek.SUNDAY;
+
+    return isWeekDay;
   }
 }

@@ -11,8 +11,13 @@ import com.fasterxml.jackson.databind.jsonschema.JsonSchema;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+import javafx.util.Pair;
+import org.bson.Document;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Map;
+import java.util.Queue;
 import java.util.function.Function;
 
 public final class JsonUtils {
@@ -84,6 +89,29 @@ public final class JsonUtils {
     JsonSchema schema = mapper.generateJsonSchema(clazz);
 
     return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema);
+  }
+
+  public static Document flattenDoc(Document document ){
+
+    Document flattened = new Document();
+    Queue<Pair<String, Document>> queue = new ArrayDeque<>();
+    queue.add( new Pair<>( "", document ) );
+
+    while( !queue.isEmpty() ){
+      Pair<String, Document> pair = queue.poll();
+      String key = pair.getKey();
+      for( Map.Entry<String, Object> entry : pair.getValue().entrySet() ){
+        if( entry.getValue() instanceof Document ){
+          queue.add( new Pair<>( key + entry.getKey() + ".", ( Document ) entry.getValue() ) );
+
+        }else{
+          flattened.put( key + entry.getKey(), entry.getValue() );
+
+        }
+      }//end for
+    }
+
+    return flattened;
   }
 }
 

@@ -9,6 +9,8 @@ public interface FundHistoryPricesRepositoryCustom {
 
   List<FundHistoryPrice> getDistinctSedol();
 
+  List<FundHistoryPrice> getSedol(String sedol);
+
   List<FundHistoryPrice> getLastUpdated(String sedol, String isin, String ftSymbol);
 
   List<FundHistoryPrice> getOldestPrice(String sedol, String isin, String ftSymbol);

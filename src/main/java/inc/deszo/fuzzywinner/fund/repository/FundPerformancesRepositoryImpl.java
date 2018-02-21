@@ -1,11 +1,10 @@
 package inc.deszo.fuzzywinner.fund.repository;
 
-import com.mongodb.*;
+import com.mongodb.WriteResult;
 import inc.deszo.fuzzywinner.fund.model.Fund;
 import inc.deszo.fuzzywinner.fund.model.FundHistoryPrice;
 import inc.deszo.fuzzywinner.fund.model.FundMapping;
 import inc.deszo.fuzzywinner.fund.model.FundPerformance;
-import inc.deszo.fuzzywinner.investmenttrust.model.InvestmentTrust;
 import inc.deszo.fuzzywinner.utils.DateUtils;
 import inc.deszo.fuzzywinner.utils.MathUtils;
 import org.slf4j.Logger;
@@ -13,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -20,6 +21,8 @@ import org.springframework.data.mongodb.core.query.Update;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.util.List;
+
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
 public class FundPerformancesRepositoryImpl implements FundPerformancesRepositoryCustom {
 
@@ -47,129 +50,145 @@ public class FundPerformancesRepositoryImpl implements FundPerformancesRepositor
     //logger.info("Number of funds key updated: {}.", fundPerformancesRepository.updateKey());
 
     List<FundHistoryPrice> fundHistoryPrices = fundHistoryPricesRepository.getDistinctSedol();
-    int fundCount = 0;
+    int fundCount = 1;
     int numOfPerformanceCalculated = 0;
 
     for (FundHistoryPrice fund : fundHistoryPrices) {
+      int numOfFundPerformanceCalculated = calculateFund(fund, fundCount, cobDate, plusFundOnly, overrideFundPerformance);
 
-      //process only plusFund
-      if (plusFundOnly) {
-        FundMapping fundMapping = fundMappingsRepository.findFirstBySedol(fund.getSedol());
-        if (fundMapping.getPlusFund().equalsIgnoreCase("false")) {
-          continue;
-        }
-      }
-
-      fundCount++;
-      logger.info("Fund {}, Sedol {}.", fundCount, fund.getSedol());
-
-      logger.info("Processing Sedol: {} Isin: {} ftSymbol: {}.", fund.getSedol(),
-          fund.getIsin(), fund.getFtSymbol());
-
-      String lastCobDate = "";
-      FundHistoryPrice lastCobPrice = null;
-
-      if (cobDate == null) {
-        //get the last cob fund price
-        List<FundHistoryPrice> lastFTCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
-            fund.getIsin(), fund.getFtSymbol());
-        Double lastFTClosePrice;
-        String lastFTCobDate = "";
-        for (FundHistoryPrice fundLastCob : lastFTCobPrice) {
-          lastFTClosePrice = fundLastCob.getPrice_close();
-          lastFTCobDate = fundLastCob.getCobLocalDateString();
-          logger.info("Last FT Close Price: {} on {}.", lastFTClosePrice, lastFTCobDate);
-        }
-
-        //get the last updated fund price from HL
-        List<Fund> lastHLCobPrice = fundsRepository.getLastUpdated(fund.getSedol());
-        Double lastHLClosePrice;
-        String lastHLCobDate = "";
-        for (Fund fundLastCob : lastHLCobPrice) {
-          lastHLClosePrice = fundLastCob.getPriceSell();
-          lastHLCobDate = fundLastCob.getUpdatedLocalDateString();
-          logger.info("Last HL Close Price: {} on {}.", lastHLClosePrice, lastHLCobDate);
-        }
-
-        // if FT cob date is > than HL cob date, use HL.
-        if (DateUtils.diffBetTwoDates(lastHLCobDate, lastFTCobDate, DateUtils.STANDARD_FORMAT) < 0) {
-
-          //note there is a price format difference between HL and FT so get the closing price from FT.
-          List<FundHistoryPrice> lastFTCobPriceUsingHLCobDate = fundHistoryPricesRepository.getFundPriceByDate(fund.getSedol(),
-              fund.getIsin(), fund.getFtSymbol(), lastHLCobDate);
-          for (FundHistoryPrice fundLastCob : lastFTCobPriceUsingHLCobDate) {
-            lastCobDate = fundLastCob.getCobLocalDateString();
-            logger.info("Last FT Close Price using HL cobDate: {} on {}.", fundLastCob.getPrice_close(),
-                lastCobDate);
-          }
-
-          lastCobPrice = lastFTCobPriceUsingHLCobDate.get(0);
-        } else {
-          lastCobDate = lastFTCobDate;
-          lastCobPrice = lastFTCobPrice.get(0);
-        }
-        logger.info("Last Close Price used: {} on {}.", lastCobPrice.getPrice_close(), lastCobDate);
-
-      } else {
-        logger.info("Using Close Date: {}", lastCobDate);
-
-        lastCobDate = DateUtils.getLocalDate(cobDate, DateUtils.STANDARD_FORMAT);
-        List<FundHistoryPrice> lastCobPrices = fundHistoryPricesRepository.getFundPriceByDate(fund.getSedol(),
-            fund.getIsin(), fund.getFtSymbol(), lastCobDate);
-
-        Boolean priceFound = false;
-
-        for (FundHistoryPrice fundLastCob : lastCobPrices) {
-          lastCobPrice = fundLastCob;
-          logger.info("Last FT Close Price: {} on {}.", fundLastCob.getPrice_close(), lastCobDate);
-          priceFound = true;
-        }
-
-        if (!priceFound) {
-          logger.error("BOOM! No Close Price found for {} on {}!", fund.getSedol(), lastCobDate);
-          continue;
-        }
-      }
-
-      //get the oldest fund price
-      List<FundHistoryPrice> inceptionPrice = fundHistoryPricesRepository.getOldestPrice(fund.getSedol(),
-          fund.getIsin(), fund.getFtSymbol());
-      Double inceptionClosePrice;
-      String inceptionCobDate = "";
-      for (FundHistoryPrice fundInceptionCob : inceptionPrice) {
-        inceptionClosePrice = fundInceptionCob.getPrice_close();
-        inceptionCobDate = fundInceptionCob.getCobLocalDateString();
-        logger.info("Inception Close Price: {} on {}.", inceptionClosePrice, inceptionCobDate);
-      }
-
-      //check if performance data has already been calculated.
-      List<FundPerformance> fundPerformances = fundPerformancesRepository.findFundPeformance(fund.getSedol(),
-          fund.getIsin(), fund.getFtSymbol(), DateUtils.getDate(lastCobDate, DateUtils.STANDARD_FORMAT));
-
-      if (fundPerformances.size() > 0) {
-        if (overrideFundPerformance) {
-          fundPerformancesRepository.update(calculateFundPerformance(fund, lastCobPrice,
-              lastCobDate, inceptionCobDate));
-
-          logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data updated for {}!",
-              fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
-          numOfPerformanceCalculated++;
-
-        } else {
-          logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data already calculated for {}!", fund.getSedol(),
-              fund.getIsin(), fund.getFtSymbol(), lastCobDate);
-        }
-      } else {
-
-        fundPerformancesRepository.save(calculateFundPerformance(fund, lastCobPrice,
-            lastCobDate, inceptionCobDate));
-
-        logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!",
-            fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
-        numOfPerformanceCalculated++;
+      if (numOfFundPerformanceCalculated > 0) {
+        numOfPerformanceCalculated += calculateFund(fund, fundCount, cobDate, plusFundOnly, overrideFundPerformance);
+        fundCount++;
       }
     }
+
     logger.info("*****Number of Fund Performance Calculated: {}", numOfPerformanceCalculated);
+  }
+
+  @Override
+  public int calculateFund(FundHistoryPrice fund, int fundCount, LocalDate cobDate, boolean plusFundOnly,
+                            boolean overrideFundPerformance) throws ParseException {
+
+    int numOfPerformanceCalculated = 0;
+
+    //process only plusFund
+    if (plusFundOnly) {
+      FundMapping fundMapping = fundMappingsRepository.findFirstBySedol(fund.getSedol());
+      if (fundMapping.getPlusFund().equalsIgnoreCase("false")) {
+        return numOfPerformanceCalculated;
+      }
+    }
+
+    //fundCount++;
+    logger.info("Fund {}, Sedol {}.", fundCount, fund.getSedol());
+
+    logger.info("Processing Sedol: {} Isin: {} ftSymbol: {}.", fund.getSedol(),
+        fund.getIsin(), fund.getFtSymbol());
+
+    String lastCobDate = "";
+    FundHistoryPrice lastCobPrice = null;
+
+    if (cobDate == null) {
+      //get the last cob fund price
+      List<FundHistoryPrice> lastFTCobPrice = fundHistoryPricesRepository.getLastUpdated(fund.getSedol(),
+          fund.getIsin(), fund.getFtSymbol());
+      Double lastFTClosePrice;
+      String lastFTCobDate = "";
+      for (FundHistoryPrice fundLastCob : lastFTCobPrice) {
+        lastFTClosePrice = fundLastCob.getPrice_close();
+        lastFTCobDate = fundLastCob.getCobLocalDateString();
+        logger.info("Last FT Close Price: {} on {}.", lastFTClosePrice, lastFTCobDate);
+      }
+
+      //get the last updated fund price from HL
+      List<Fund> lastHLCobPrice = fundsRepository.getLastUpdated(fund.getSedol());
+      Double lastHLClosePrice;
+      String lastHLCobDate = "";
+      for (Fund fundLastCob : lastHLCobPrice) {
+        lastHLClosePrice = fundLastCob.getPriceSell();
+        lastHLCobDate = fundLastCob.getUpdatedLocalDateString();
+        logger.info("Last HL Close Price: {} on {}.", lastHLClosePrice, lastHLCobDate);
+      }
+
+      // if FT cob date is > than HL cob date, use HL.
+      if (DateUtils.diffBetTwoDates(lastHLCobDate, lastFTCobDate, DateUtils.STANDARD_FORMAT) < 0) {
+
+        //note there is a price format difference between HL and FT so get the closing price from FT.
+        List<FundHistoryPrice> lastFTCobPriceUsingHLCobDate = fundHistoryPricesRepository.getFundPriceByDate(fund.getSedol(),
+            fund.getIsin(), fund.getFtSymbol(), lastHLCobDate);
+        for (FundHistoryPrice fundLastCob : lastFTCobPriceUsingHLCobDate) {
+          lastCobDate = fundLastCob.getCobLocalDateString();
+          logger.info("Last FT Close Price using HL cobDate: {} on {}.", fundLastCob.getPrice_close(),
+              lastCobDate);
+        }
+
+        lastCobPrice = lastFTCobPriceUsingHLCobDate.get(0);
+      } else {
+        lastCobDate = lastFTCobDate;
+        lastCobPrice = lastFTCobPrice.get(0);
+      }
+      logger.info("Last Close Price used: {} on {}.", lastCobPrice.getPrice_close(), lastCobDate);
+
+    } else {
+      lastCobDate = DateUtils.getLocalDate(cobDate, DateUtils.STANDARD_FORMAT);
+      List<FundHistoryPrice> lastCobPrices = fundHistoryPricesRepository.getFundPriceByDate(fund.getSedol(),
+          fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+
+      logger.info("Using Close Date: {}", lastCobDate);
+
+      Boolean priceFound = false;
+
+      for (FundHistoryPrice fundLastCob : lastCobPrices) {
+        lastCobPrice = fundLastCob;
+        logger.info("Last FT Close Price: {} on {}.", fundLastCob.getPrice_close(), lastCobDate);
+        priceFound = true;
+      }
+
+      if (!priceFound) {
+        logger.error("BOOM! No Close Price found for {} on {}!", fund.getSedol(), lastCobDate);
+        return numOfPerformanceCalculated;
+      }
+    }
+
+    //get the oldest fund price
+    List<FundHistoryPrice> inceptionPrice = fundHistoryPricesRepository.getOldestPrice(fund.getSedol(),
+        fund.getIsin(), fund.getFtSymbol());
+    Double inceptionClosePrice;
+    String inceptionCobDate = "";
+    for (FundHistoryPrice fundInceptionCob : inceptionPrice) {
+      inceptionClosePrice = fundInceptionCob.getPrice_close();
+      inceptionCobDate = fundInceptionCob.getCobLocalDateString();
+      logger.info("Inception Close Price: {} on {}.", inceptionClosePrice, inceptionCobDate);
+    }
+
+    //check if performance data has already been calculated.
+    List<FundPerformance> fundPerformances = fundPerformancesRepository.findFundPeformance(fund.getSedol(),
+        fund.getIsin(), fund.getFtSymbol(), DateUtils.getDate(lastCobDate, DateUtils.STANDARD_FORMAT));
+
+    if (fundPerformances.size() > 0) {
+      if (overrideFundPerformance) {
+        fundPerformancesRepository.update(calculateFundPerformance(fund, lastCobPrice,
+            lastCobDate, inceptionCobDate));
+
+        logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data updated for {}!",
+            fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+        numOfPerformanceCalculated++;
+
+      } else {
+        logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data already calculated for {}!", fund.getSedol(),
+            fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+      }
+    } else {
+
+      fundPerformancesRepository.save(calculateFundPerformance(fund, lastCobPrice,
+          lastCobDate, inceptionCobDate));
+
+      logger.info("Processed Sedol: {} Isin: {} ftSymbol: {}. Performance data saved for {}!",
+          fund.getSedol(), fund.getIsin(), fund.getFtSymbol(), lastCobDate);
+      numOfPerformanceCalculated++;
+    }
+
+    return numOfPerformanceCalculated;
   }
 
   private FundPerformance calculateFundPerformance(FundHistoryPrice fund,
@@ -256,13 +275,25 @@ public class FundPerformancesRepositoryImpl implements FundPerformancesRepositor
 
       priceDiff = fundLastCob.getPrice_close() - closePrice;
       priceDiffInPercent = MathUtils.round((priceDiff / closePrice) * 100.0, 1);
-      logger.info("{} {} {} vs {} {} -> {}%", tenor, closePrice, cobDate, fundLastCob.getPrice_close(),
+      logger.debug("{} {} {} vs {} {} -> {}%", tenor, closePrice, cobDate, fundLastCob.getPrice_close(),
           fundLastCob.getCobLocalDateString(), priceDiffInPercent);
     }
 
     return priceDiffInPercent;
   }
 
+  @Override
+  public AggregationResults<FundPerformance> getSedolByTenorPerformance(String tenor, double performance) {
+
+    Aggregation aggFund = newAggregation(
+        match(Criteria.where(tenor).lte(performance)),
+        group("sedol").count().as("total"),
+        project("total").and("sedol").previousOperation(),
+        sort(Sort.Direction.DESC, "sedol")
+    );
+
+    return mongoTemplate.aggregate(aggFund, FundPerformance.class, FundPerformance.class);
+  }
 
 
   @Override

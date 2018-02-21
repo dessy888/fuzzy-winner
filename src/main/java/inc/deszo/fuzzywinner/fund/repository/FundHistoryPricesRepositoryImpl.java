@@ -43,6 +43,24 @@ public class FundHistoryPricesRepositoryImpl implements FundHistoryPricesReposit
   }
 
   @Override
+  public List<FundHistoryPrice> getSedol(String sedol) {
+
+    Aggregation agg = newAggregation(
+        match(Criteria.where("type").is(Type.FUND).andOperator(Criteria.where("sedol").is(sedol))),
+        group("sedol", "isin", "ftSymbol", "type").count().as("total"),
+        project("sedol", "isin", "ftSymbol", "type").and("total").previousOperation(),
+        sort(Sort.Direction.DESC, "sedol")
+    );
+
+    //Convert the aggregation result into a List
+    AggregationResults<FundHistoryPrice> groupResults = mongoTemplate.aggregate(agg, FundHistoryPrice.class, FundHistoryPrice.class);
+
+    return groupResults.getMappedResults();
+
+    //return mongoTemplate.getCollection("historyprices").aggregate().distinct("sedol");
+  }
+
+  @Override
   public List<FundHistoryPrice> getLastUpdated(String sedol, String isin, String ftSymbol) {
 
     Query query = new Query();

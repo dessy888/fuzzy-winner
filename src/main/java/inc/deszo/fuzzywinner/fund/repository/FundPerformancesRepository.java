@@ -11,4 +11,9 @@ public interface FundPerformancesRepository extends MongoRepository<FundPerforma
 
   @Query("{sedol: '?0', isin: '?1', ftSymbol: '?2', cobDate: ?3}")
   List<FundPerformance> findFundPeformance(String sedol, String isin, String ftSymbol, Date cobDate);
+
+  @Query(value="{id : '?0'}", delete = true)
+  int deleteBySedol(String sedol);
+
+  int deleteFundPerformanceBySedol(String sedol);
 }

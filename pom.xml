@@ -15,7 +15,7 @@
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <org.springframework.version>4.3.9.RELEASE</org.springframework.version>
+        <org.springframework.version>4.3.14.RELEASE</org.springframework.version>
         <jsoup.version>1.9.1</jsoup.version>
         <jackson.version>2.8.6</jackson.version>
 
@@ -24,7 +24,7 @@
         <spring-data-mongodb.version>1.10.4.RELEASE</spring-data-mongodb.version>
         <mongo-java-driver.version>3.4.2</mongo-java-driver.version>
 
-        <spring-boot-maven-plugin.version>1.5.3.RELEASE</spring-boot-maven-plugin.version>
+        <spring-boot-maven-plugin.version>1.5.10.RELEASE</spring-boot-maven-plugin.version>
         <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
         <maven-checkstyle-plugin.version>2.17</maven-checkstyle-plugin.version>
 
@@ -34,7 +34,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>1.5.3.RELEASE</version>
+        <version>1.5.10.RELEASE</version>
     </parent>
 
     <dependencies>
